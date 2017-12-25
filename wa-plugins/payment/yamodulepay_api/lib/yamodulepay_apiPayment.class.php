@@ -48,7 +48,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const ORDER_STATE_PROCESS = 'process';
 
 
-    private $version = '1.0.1';
+    private $version = '1.0.2';
     private $order_id;
     private $request;
 

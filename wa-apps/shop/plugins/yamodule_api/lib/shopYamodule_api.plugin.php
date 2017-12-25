@@ -195,7 +195,7 @@ class shopYamodule_apiPlugin extends shopPlugin
         }
 
         if ($taxValues) {
-            $sm->set('shop.yamodule_api', taxValues, serialize($taxValues));
+            $sm->set('shop.yamodule_api', 'taxValues', serialize($taxValues));
         }
 
         $array_fields = array(
@@ -475,6 +475,17 @@ class shopYamodule_apiPlugin extends shopPlugin
             );
         }
 
+        if (empty($this->errors['kassa']) && !empty($data['ya_kassa_active'])) {
+            if (!$this->checkConnection($data['ya_kassa_shopid'], $data['ya_kassa_pw'])) {
+                $this->errors['kassa'][] = $this->errors_alert(
+                    _w(
+                        'Проверьте shopId и Секретный ключ — где-то есть ошибка. А лучше скопируйте их прямо '
+                        . 'из <a href="https://kassa.yandex.ru/my" target="_blank">личного кабинета Яндекс.Кассы</a>'
+                    )
+                );
+            }
+        }
+
         if ($this->isTestMode($data)) {
             $this->errors['kassa'][] = $this->info_alert(
                 ' Вы включили тестовый режим приема платежей. Проверьте, как проходит оплата. <a
@@ -632,5 +643,26 @@ class shopYamodule_apiPlugin extends shopPlugin
         }
         $rec .= "$data\n";
         waLog::log($rec, $filename);
+    }
+
+    private function checkConnection($shopId, $password)
+    {
+        $file = realpath(dirname(__FILE__) . '/../../../../..') . '/wa-plugins/payment/yamodulepay_api/vendor/autoload.php';
+        if (!file_exists($file)) {
+            return false;
+        }
+        require_once $file;
+
+        $apiClient = new YandexMoneyApi();
+        $apiClient->setAuth($shopId, $password);
+
+        try {
+            $payment = $apiClient->getPaymentInfo('00000000-0000-0000-0000-000000000001');
+        } catch (\YaMoney\Common\Exceptions\NotFoundException $e) {
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+        return true;
     }
 }

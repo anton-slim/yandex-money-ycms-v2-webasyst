@@ -109,11 +109,19 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $this->view->assign('ya_metrika_callback', $root . 'webasyst/shop/?action=plugins#/yamodule_api/');
         $this->view->assign(
             'ya_market_yml',
-            wa()->getRouteUrl('shop/frontend', array('module' => 'yamodule_api', 'action' => 'market'), true)
+            str_replace(
+                'http://',
+                'https://',
+                wa()->getRouteUrl('shop/frontend', array('module' => 'yamodule_api', 'action' => 'market'), true)
+            )
         );
         $this->view->assign(
             'ya_pokupki_link',
-            wa()->getRouteUrl('shop/frontend', array(), true).'yamodule_api/pokupki'
+            str_replace(
+                'http://',
+                'https://',
+                wa()->getRouteUrl('shop/frontend', array(), true).'yamodule_api/pokupki'
+            )
         );
         $this->view->assign('ya_currencies', $currencies);
         $this->view->assign('treeCat', $this->treeCat());
