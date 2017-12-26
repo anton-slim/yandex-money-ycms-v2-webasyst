@@ -3,7 +3,11 @@ require_once dirname(__FILE__).'/../vendor/autoload.php';
 
 use YaMoney\Client\YandexMoneyApi;
 use YaMoney\Common\Exceptions\ApiException;
+use YaMoney\Model\ConfirmationType;
 use YaMoney\Model\Notification\NotificationWaitingForCapture;
+use YaMoney\Model\PaymentData\PaymentDataAlfabank;
+use YaMoney\Model\PaymentData\PaymentDataQiwi;
+use YaMoney\Model\PaymentMethodType;
 use YaMoney\Model\PaymentStatus;
 use YaMoney\Request\Payments\CreatePaymentRequest;
 use YaMoney\Request\Payments\CreatePaymentRequestSerializer;
@@ -725,17 +729,17 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $shopId        = $data['ya_kassa_shopid'];
         $shopPassword  = $data['ya_kassa_pw'];
         $this->debugLog("Pament method: ".$paymentMethod);
-        $confirmationType = \YaMoney\Model\ConfirmationType::REDIRECT;
-        if ($paymentMethod == \YaMoney\Model\PaymentMethodType::ALFABANK) {
-            $confirmationType = \YaMoney\Model\ConfirmationType::EXTERNAL;
-            $paymentMethod    = new \YaMoney\Model\PaymentData\PaymentDataAlfabank();
+        $confirmationType = ConfirmationType::REDIRECT;
+        if ($paymentMethod == PaymentMethodType::ALFABANK) {
+            $confirmationType = ConfirmationType::EXTERNAL;
+            $paymentMethod    = new PaymentDataAlfabank();
             try {
                 $paymentMethod->setLogin($paymentFormData['alfabank_login']);
             } catch (Exception $e) {
                 $this->errors[] = 'Поле логин заполнено неверно.';
             }
-        } elseif ($paymentMethod == \YaMoney\Model\PaymentMethodType::QIWI) {
-            $paymentMethod = new \YaMoney\Model\PaymentData\PaymentDataQiwi();
+        } elseif ($paymentMethod == PaymentMethodType::QIWI) {
+            $paymentMethod = new PaymentDataQiwi();
             $phone         = preg_replace('/[^\d]/', '', $paymentFormData['qiwi_phone']);
             try {
                 $paymentMethod->setPhone($phone);
@@ -871,14 +875,14 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     private function getPaymentMethod($paymentType)
     {
         $paymentMethodsMap = array(
-            'PC' => \YaMoney\Model\PaymentMethodType::YANDEX_MONEY,
-            'AC' => \YaMoney\Model\PaymentMethodType::BANK_CARD,
-            'GP' => \YaMoney\Model\PaymentMethodType::CASH,
-            'MC' => \YaMoney\Model\PaymentMethodType::MOBILE_BALANCE,
-            'WM' => \YaMoney\Model\PaymentMethodType::WEBMONEY,
-            'SB' => \YaMoney\Model\PaymentMethodType::SBERBANK,
-            'AB' => \YaMoney\Model\PaymentMethodType::ALFABANK,
-            'QW' => \YaMoney\Model\PaymentMethodType::QIWI,
+            'PC' => PaymentMethodType::YANDEX_MONEY,
+            'AC' => PaymentMethodType::BANK_CARD,
+            'GP' => PaymentMethodType::CASH,
+            'MC' => PaymentMethodType::MOBILE_BALANCE,
+            'WM' => PaymentMethodType::WEBMONEY,
+            'SB' => PaymentMethodType::SBERBANK,
+            'AB' => PaymentMethodType::ALFABANK,
+            'QW' => PaymentMethodType::QIWI,
         );
 
         if (in_array($paymentType, array_keys($paymentMethodsMap))) {
