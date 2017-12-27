@@ -52,7 +52,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const ORDER_STATE_PROCESS = 'process';
 
 
-    private $version = '1.0.2';
+    private $version = '1.0.4';
     private $order_id;
     private $request;
 
@@ -149,20 +149,24 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 $result = $this->createPayment($order_data, $payment_form_data, $data);
 
                 if ($result) {
-                    $data = array(
-                        'order_id'  => $order_data->id,
-                        'native_id' => $result->getId(),
+                    $transaction_data = array(
+                        'plugin'      => $this->id,
+                        'type'        => self::OPERATION_HOSTED_PAYMENT_AFTER_ORDER,
+                        'order_id'    => $order_data->id,
+                        'merchant_id' => $this->merchant_id,
+                        'native_id'   => $result->getId(),
+                        'state'       => self::STATE_AUTH,
                     );
 
                     $transactionModel = new waTransactionModel();
                     $transaction      = $this->getTransactionByOrder($transactionModel, $order_data);
 
                     if ($transaction) {
-                        if ($transactionModel->updateById($transaction['id'], $data)) {
+                        if ($transactionModel->updateById($transaction['id'], $transaction_data)) {
                             wa()->getResponse()->redirect($result->confirmation->confirmationUrl);
                         }
                     } else {
-                        if ($transactionModel->insert($data)) {
+                        if ($transactionModel->insert($transaction_data)) {
                             wa()->getResponse()->redirect($result->confirmation->confirmationUrl);
                         }
                     }
@@ -263,10 +267,11 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
             if (!json_last_error()) {
                 $notificationModel = new NotificationWaitingForCapture($callbackParams);
 
-                $paymentResponce = $notificationModel->getObject();
-                $transaction     = $this->getTransactionByPaymentId($paymentResponce->id);
-                $orderModel      = new shopOrderModel();
-                $order           = $orderModel->getOrder($transaction['order_id']);
+                $paymentResponce  = $notificationModel->getObject();
+                $transaction      = $this->getTransactionByPaymentId($paymentResponce->id);
+                $transactionModel = new waTransactionModel();
+                $orderModel       = new shopOrderModel();
+                $order            = $orderModel->getOrder($transaction['order_id']);
                 if (!$order) {
                     header("HTTP/1.1 404 Not Found");
                     header("Status: 404 Not Found");
@@ -301,9 +306,15 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                                 );
                                 if ($captureResponse->status == PaymentStatus::SUCCEEDED) {
                                     $text = "Номер транзакции в Яндекс.Кассе: {$paymentResponce->getId()}. Сумма: {$paymentResponce->getAmount()}";
+                                    $transactionModel->updateById($transaction['id'],
+                                        array('state' => self::STATE_CAPTURED));
                                     if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
                                         $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
                                     }
+                                } else {
+                                    $transactionModel->updateById($transaction['id'],
+                                        array('state' => self::STATE_CANCELED));
+                                    $this->debugLog('Payment canceled. payment id: '.$paymentResponce->getId());
                                 }
                                 header("HTTP/1.1 200 OK");
                                 header("Status: 200 OK");
@@ -315,6 +326,8 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                             case PaymentStatus::SUCCEEDED:
                                 $this->changeOrderState($order, self::ORDER_STATE_COMPLETE);
                                 $text = "Номер транзакции в Яндекс.Кассе: {$paymentResponce->getId()}. Сумма: {$paymentResponce->getAmount()}";
+                                $transactionModel->updateById($transaction['id'],
+                                    array('state' => self::STATE_CAPTURED));
                                 if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
                                     $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
                                 }
@@ -322,6 +335,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                                 header("Status: 200 OK");
                                 break;
                             case PaymentStatus::CANCELED:
+                                $transactionModel->updateById($transaction['id'],
+                                    array('state' => self::STATE_CANCELED));
+                                $this->debugLog('Payment canceled. payment id: '.$paymentResponce->getId());
+
                                 header("HTTP/1.1 200 OK");
                                 header("Status: 200 OK");
                                 break;
@@ -1016,6 +1033,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 $captureRequest = $this->capturePayment($paymentId, $result->getAmount(), $order);
                 if ($captureRequest->status == PaymentStatus::SUCCEEDED) {
                     $text = "Номер транзакции в Яндекс.Кассе: {$paymentId}. Сумма: {$result->getAmount()->getValue()}";
+                    $transactionModel->updateById($transactionData['id'], array('state' => self::STATE_CAPTURED));
                     if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
                         $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
                     }
@@ -1023,16 +1041,19 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                     $this->debugLog('Payment succeeded. Redirect: '.$redirect);
                     wa()->getResponse()->redirect($redirect);
                 } elseif ($result->status == PaymentStatus::CANCELED) {
+                    $transactionModel->updateById($transactionData['id'], array('state' => self::STATE_CANCELED));
                     $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_FAIL, $transactionData);
                     $this->debugLog('Payment canceled. Redirect: '.$redirect);
                     wa()->getResponse()->redirect($redirect);
                 }
             } elseif ($result->status == PaymentStatus::CANCELED) {
                 $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_FAIL, $transactionData);
+                $transactionModel->updateById($transactionData['id'], array('state' => self::STATE_CANCELED));
                 $this->debugLog('Payment canceled. Redirect: '.$redirect);
                 wa()->getResponse()->redirect($redirect);
             } elseif ($result->status == PaymentStatus::SUCCEEDED) {
                 $text = "Номер транзакции в Яндекс.Кассе: {$paymentId}. Сумма: {$result->getAmount()->getValue()}";
+                $transactionModel->updateById($transactionData['id'], array('state' => self::STATE_CAPTURED));
                 if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
                     $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
                 }
