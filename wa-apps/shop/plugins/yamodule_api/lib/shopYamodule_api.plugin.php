@@ -560,63 +560,65 @@ class shopYamodule_apiPlugin extends shopPlugin
         } catch (Exception $e) {
             $this->debugLog($e->getMessage());
         }
+        if($result) {
+            $paymentMethod      = $result->getPaymentMethod();
+            $paymentMethodType  = $paymentMethod->getType();
+            $paymentMethodTitle = $this->settingsPaymentOptions($paymentMethodType);
 
-        $paymentMethod      = $result->getPaymentMethod();
-        $paymentMethodType  = $paymentMethod->getType();
-        $paymentMethodTitle = $this->settingsPaymentOptions($paymentMethodType);
+            $receipt = $orderReceipt['receipt'];
+            if ($receipt) {
+                $receiptData = json_decode($receipt, true);
+                $items       = $receiptData['items'];
+                $actualTotal = 0;
 
-        $receipt = $orderReceipt['receipt'];
-        if ($receipt) {
-            $receiptData = json_decode($receipt, true);
-            $items       = $receiptData['items'];
-            $actualTotal = 0;
-
-            foreach ($items as $item) {
-                $actualTotal += $item['amount']['value'] * $item['quantity'];
+                foreach ($items as $item) {
+                    $actualTotal += $item['amount']['value'] * $item['quantity'];
+                }
+                if (empty($items)) {
+                    $errors[] = 'Нет товаров для отправки в Яндекс.Касса';
+                }
+            } else {
+                $items     = array();
+                $email     = '';
+                $taxValues = array();
             }
-            if (empty($items)) {
-                $errors[] = 'Нет товаров для отправки в Яндекс.Касса';
+
+            $refunds = $orderRefundModel->getByOrderId($orderId);
+            $returnTotal = 0;
+            if ($refunds) {
+                foreach ($refunds as $refund) {
+                    $returnTotal += (float)$refund['amount'];
+                }
             }
-        } else {
-            $items     = array();
-            $email     = '';
-            $taxValues = array();
+            $showReturnTab = !in_array($order['state_id'], array('new', 'processing'));
+            $view->assign(
+                array(
+                    'show_return_tab'     => $showReturnTab,
+                    'return_total'        => $returnTotal,
+                    'return_sum'          => $order['total'],
+                    'invoiceId'           => $paymentId,
+                    'return_items'        => $refunds,
+                    'payment_method'      => $paymentMethodTitle,
+                    'return_errors'       => $errors,
+                    'total'               => $order['total'],
+                    'id_order'            => $orderId,
+                    'test'                => 1,
+                    'pym'                 => $paymentId,
+                    'state'               => $state,
+                    'products'            => $items,
+                    'orderTotal'          => $order['total'],
+                    'taxTotal'            => $order['tax'],
+                    'ya_kassa_send_check' => 1,
+                )
+            );
+
+            $html = '';
+
+            $html['info_section'] = $view->fetch($this->path.'/templates/actions/settings/tabs_return.html');
+
+            return $html;
         }
 
-        $refunds = $orderRefundModel->getByOrderId($orderId);
-        $returnTotal = 0;
-        if ($refunds) {
-            foreach ($refunds as $refund) {
-                $returnTotal += (float)$refund['amount'];
-            }
-        }
-        $showReturnTab = !in_array($order['state_id'], array('new', 'processing'));
-        $view->assign(
-            array(
-                'show_return_tab'     => $showReturnTab,
-                'return_total'        => $returnTotal,
-                'return_sum'          => $order['total'],
-                'invoiceId'           => $paymentId,
-                'return_items'        => $refunds,
-                'payment_method'      => $paymentMethodTitle,
-                'return_errors'       => $errors,
-                'total'               => $order['total'],
-                'id_order'            => $orderId,
-                'test'                => 1,
-                'pym'                 => $paymentId,
-                'state'               => $state,
-                'products'            => $items,
-                'orderTotal'          => $order['total'],
-                'taxTotal'            => $order['tax'],
-                'ya_kassa_send_check' => 1,
-            )
-        );
-
-        $html = '';
-
-        $html['info_section'] = $view->fetch($this->path.'/templates/actions/settings/tabs_return.html');
-
-        return $html;
     }
 
     private function debugLog($message)
