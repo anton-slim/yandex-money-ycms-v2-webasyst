@@ -137,9 +137,10 @@ class shopYamodule_apiPlugin extends shopPlugin
             $shopPassword = $settings['ya_kassa_pw'];
             $apiClient    = new YandexMoneyApi();
             $apiClient->setAuth($shopId, $shopPassword);
+            $that = $this;
             $apiClient->setLogger(
-                function ($level, $message, $context) {
-                    $this->debugLog($message);
+                function ($level, $message, $context) use ($that) {
+                    $that->debugLog($message);
                 }
             );
             $idempotencyKey = base64_encode($orderId.'/'.microtime());
@@ -550,9 +551,10 @@ class shopYamodule_apiPlugin extends shopPlugin
         $shopPassword       = $settings['ya_kassa_pw'];
         $apiClient          = new YandexMoneyApi();
         $apiClient->setAuth($shopId, $shopPassword);
+        $that = $this;
         $apiClient->setLogger(
-            function ($level, $message, $context) {
-                $this->debugLog($message);
+            function ($level, $message, $context) use ($that) {
+                $that->debugLog($message);
             }
         );
         try {
@@ -621,7 +623,7 @@ class shopYamodule_apiPlugin extends shopPlugin
 
     }
 
-    private function debugLog($message)
+    public function debugLog($message)
     {
         $this->log('yamodulepayApi', $message);
     }

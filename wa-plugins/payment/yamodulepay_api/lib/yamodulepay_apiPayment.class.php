@@ -919,9 +919,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     {
         $apiClient = new YandexMoneyApi();
         $apiClient->setAuth($shopId, $shopPassword);
+        $that = $this;
         $apiClient->setLogger(
-            function ($level, $message, $context) {
-                $this->debugLog($message);
+            function ($level, $message, $context) use ($that) {
+                $that->debugLog($message);
             }
         );
 
@@ -1109,7 +1110,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         return empty($this->errors);
     }
 
-    private function debugLog($message)
+    public function debugLog($message)
     {
         self::log('yamodulepayApi', $message);
     }
