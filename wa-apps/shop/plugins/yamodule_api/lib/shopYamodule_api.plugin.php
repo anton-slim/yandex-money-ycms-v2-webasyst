@@ -481,7 +481,7 @@ class shopYamodule_apiPlugin extends shopPlugin
                 $this->errors['kassa'][] = $this->errors_alert(
                     _w(
                         'Проверьте shopId и Секретный ключ — где-то есть ошибка. А лучше скопируйте их прямо '
-                        . 'из <a href="https://kassa.yandex.ru/my" target="_blank">личного кабинета Яндекс.Кассы</a>'
+                        .'из <a href="https://kassa.yandex.ru/my" target="_blank">личного кабинета Яндекс.Кассы</a>'
                     )
                 );
             }
@@ -521,7 +521,11 @@ class shopYamodule_apiPlugin extends shopPlugin
             $transactionData = array_shift($transactions);
         }
 
-        return $transactionData;
+        if (isset($transactionData)) {
+            return;
+        }
+
+        return null;
     }
 
     public function kassaOrderReturn()
@@ -543,8 +547,6 @@ class shopYamodule_apiPlugin extends shopPlugin
         $order              = $order_model->getById($orderId);
         $state              = $order['state_id'];
         $orderReceipt       = $orderReceiptsModel->getByOrderId((int)$order['id']);
-        $transaction        = $this->getTransactionByOrder($transactionModel, (int)$order['id']);
-        $paymentId          = $transaction['native_id'];
         $app                = new waAppSettingsModel();
         $settings           = $app->get('shop.yamodule_api');
         $shopId             = $settings['ya_kassa_shopid'];
@@ -557,70 +559,75 @@ class shopYamodule_apiPlugin extends shopPlugin
                 $that->debugLog($message);
             }
         );
-        try {
-            $result = $apiClient->getPaymentInfo($paymentId);
-        } catch (Exception $e) {
-            $this->debugLog($e->getMessage());
-        }
-        if($result) {
-            $paymentMethod      = $result->getPaymentMethod();
-            $paymentMethodType  = $paymentMethod->getType();
-            $paymentMethodTitle = $this->settingsPaymentOptions($paymentMethodType);
 
-            $receipt = $orderReceipt['receipt'];
-            if ($receipt) {
-                $receiptData = json_decode($receipt, true);
-                $items       = $receiptData['items'];
-                $actualTotal = 0;
+        $transaction = $this->getTransactionByOrder($transactionModel, (int)$order['id']);
+        if ($transaction && isset($transaction['native_id'])) {
+            $paymentId = $transaction['native_id'];
 
-                foreach ($items as $item) {
-                    $actualTotal += $item['amount']['value'] * $item['quantity'];
-                }
-                if (empty($items)) {
-                    $errors[] = 'Нет товаров для отправки в Яндекс.Касса';
-                }
-            } else {
-                $items     = array();
-                $email     = '';
-                $taxValues = array();
+            try {
+                $result = $apiClient->getPaymentInfo($paymentId);
+            } catch (Exception $e) {
+                $this->debugLog($e->getMessage());
             }
+            if ($result) {
+                $paymentMethod      = $result->getPaymentMethod();
+                $paymentMethodType  = $paymentMethod->getType();
+                $paymentMethodTitle = $this->settingsPaymentOptions($paymentMethodType);
 
-            $refunds = $orderRefundModel->getByOrderId($orderId);
-            $returnTotal = 0;
-            if ($refunds) {
-                foreach ($refunds as $refund) {
-                    $returnTotal += (float)$refund['amount'];
+                $receipt = $orderReceipt['receipt'];
+                if ($receipt) {
+                    $receiptData = json_decode($receipt, true);
+                    $items       = $receiptData['items'];
+                    $actualTotal = 0;
+
+                    foreach ($items as $item) {
+                        $actualTotal += $item['amount']['value'] * $item['quantity'];
+                    }
+                    if (empty($items)) {
+                        $errors[] = 'Нет товаров для отправки в Яндекс.Касса';
+                    }
+                } else {
+                    $items     = array();
+                    $email     = '';
+                    $taxValues = array();
                 }
+
+                $refunds     = $orderRefundModel->getByOrderId($orderId);
+                $returnTotal = 0;
+                if ($refunds) {
+                    foreach ($refunds as $refund) {
+                        $returnTotal += (float)$refund['amount'];
+                    }
+                }
+                $showReturnTab = !in_array($order['state_id'], array('new', 'processing'));
+                $view->assign(
+                    array(
+                        'show_return_tab'     => $showReturnTab,
+                        'return_total'        => $returnTotal,
+                        'return_sum'          => $order['total'],
+                        'invoiceId'           => $paymentId,
+                        'return_items'        => $refunds,
+                        'payment_method'      => $paymentMethodTitle,
+                        'return_errors'       => $errors,
+                        'total'               => $order['total'],
+                        'id_order'            => $orderId,
+                        'test'                => 1,
+                        'pym'                 => $paymentId,
+                        'state'               => $state,
+                        'products'            => $items,
+                        'orderTotal'          => $order['total'],
+                        'taxTotal'            => $order['tax'],
+                        'ya_kassa_send_check' => 1,
+                    )
+                );
+
+                $html = '';
+
+                $html['info_section'] = $view->fetch($this->path.'/templates/actions/settings/tabs_return.html');
+
+                return $html;
             }
-            $showReturnTab = !in_array($order['state_id'], array('new', 'processing'));
-            $view->assign(
-                array(
-                    'show_return_tab'     => $showReturnTab,
-                    'return_total'        => $returnTotal,
-                    'return_sum'          => $order['total'],
-                    'invoiceId'           => $paymentId,
-                    'return_items'        => $refunds,
-                    'payment_method'      => $paymentMethodTitle,
-                    'return_errors'       => $errors,
-                    'total'               => $order['total'],
-                    'id_order'            => $orderId,
-                    'test'                => 1,
-                    'pym'                 => $paymentId,
-                    'state'               => $state,
-                    'products'            => $items,
-                    'orderTotal'          => $order['total'],
-                    'taxTotal'            => $order['tax'],
-                    'ya_kassa_send_check' => 1,
-                )
-            );
-
-            $html = '';
-
-            $html['info_section'] = $view->fetch($this->path.'/templates/actions/settings/tabs_return.html');
-
-            return $html;
         }
-
     }
 
     public function debugLog($message)
@@ -651,7 +658,7 @@ class shopYamodule_apiPlugin extends shopPlugin
 
     private function checkConnection($shopId, $password)
     {
-        $file = realpath(dirname(__FILE__) . '/../../../../..') . '/wa-plugins/payment/yamodulepay_api/vendor/autoload.php';
+        $file = realpath(dirname(__FILE__).'/../../../../..').'/wa-plugins/payment/yamodulepay_api/vendor/autoload.php';
         if (!file_exists($file)) {
             return false;
         }
@@ -667,6 +674,7 @@ class shopYamodule_apiPlugin extends shopPlugin
         } catch (\Exception $e) {
             return false;
         }
+
         return true;
     }
 }

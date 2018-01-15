@@ -52,7 +52,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const ORDER_STATE_PROCESS = 'process';
 
 
-    private $version = '1.0.6';
+    private $version = '1.0.7';
     private $order_id;
     private $request;
 
@@ -200,7 +200,6 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
 
         return $view->fetch($this->path.'/templates/payment.html');
     }
-
 
     protected function callbackInit($request)
     {

@@ -18,21 +18,17 @@
 </form>
 {/if}
 {if $kassa}
-<form id="paymentFormKassa" action="{$form_url_kassa}" method="post">
-    {foreach $hidden_fields as $name => $value}
-    <input type="hidden" name="{$name}" value='{$value}'/>
-    {/foreach}
-
+<form id="paymentFormKassa" action="" method="post">
     {if $inside}
     [`Выберите метод оплаты`]
     <table class="radio" style="width: 50%;margin: 25px auto;">
         <br>
-        {if $errors}
-        {foreach $errors as $error}
-        <div style="color: #ff1029;">
-            {$error}
-        </div>
-        {/foreach}
+        {if isset($errors)}
+            {foreach $errors as $error}
+            <div style="color: #ff1029;">
+                {$error}
+            </div>
+            {/foreach}
         {/if}
         <tbody>
         {if $wallet}
