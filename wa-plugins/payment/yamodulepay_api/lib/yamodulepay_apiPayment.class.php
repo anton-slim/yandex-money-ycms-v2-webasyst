@@ -52,7 +52,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const ORDER_STATE_PROCESS = 'process';
 
 
-    private $version = '1.0.7';
+    private $version = '1.0.8';
     private $order_id;
     private $request;
 
@@ -261,6 +261,21 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         }
 
         if (isset($request['action']) && $request['action'] == 'callback') {
+            if (waRequest::getMethod() == 'get') {
+                $version       = wa()->getVersion('webasyst');
+                $versionChunks = explode('.', $version);
+                if (isset($versionChunks[3])) {
+                    unset($versionChunks[3]);
+                }
+
+                $vesrionString = implode('.', $versionChunks);
+                header("HTTP/1.1 405 Method Not Allowed");
+                echo '{
+                    module_version: "'.$this->version.'",
+                    cms_version: "'.$vesrionString.'"
+                }';
+                exit();
+            }
             $body           = @file_get_contents('php://input');
             $callbackParams = json_decode($body);
             if (!json_last_error()) {

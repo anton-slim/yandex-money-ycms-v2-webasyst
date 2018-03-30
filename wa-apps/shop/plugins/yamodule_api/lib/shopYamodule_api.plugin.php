@@ -16,7 +16,7 @@ class shopYamodule_apiPlugin extends shopPlugin
         $data_shop = $sm->get('webasyst');
         $array     = array(
             'url'      => wa()->getUrl(true),
-            'cms'      => 'shop-script5',
+            'cms'      => 'api-shop-script5',
             'version'  => wa()->getVersion('webasyst'),
             'ver_mod'  => $this->info['version'],
             'email'    => $data_shop['email'],

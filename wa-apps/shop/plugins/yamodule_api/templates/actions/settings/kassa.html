@@ -125,23 +125,17 @@
             </div>
             <div class="value">
                 <select name="ya_kassa_tax_{$tax['id']}" class=" fixed-width-xl" id="ya_kassa_tax_{$tax['id']}">
-                    <option {if isset($ya_kassa_tax_{$tax[
-                    'id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 1} selected="selected" {/if}
+                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 1} selected="selected" {/if}
                     value="1">Без НДС</option>
-                    <option {if isset($ya_kassa_tax_{$tax[
-                    'id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 2} selected="selected" {/if}
+                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 2} selected="selected" {/if}
                     value="2">0%</option>
-                    <option {if isset($ya_kassa_tax_{$tax[
-                    'id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 3} selected="selected" {/if}
-                    value="3" selected="selected">10%</option>
-                    <option {if isset($ya_kassa_tax_{$tax[
-                    'id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 4} selected="selected" {/if}
+                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 3} selected="selected" {/if}
+                    value="3">10%</option>
+                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 4} selected="selected" {/if}
                     value="4">18%</option>
-                    <option {if isset($ya_kassa_tax_{$tax[
-                    'id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 5} selected="selected" {/if}
+                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 5} selected="selected" {/if}
                     value="5">Расчётная ставка 10/110</option>
-                    <option {if isset($ya_kassa_tax_{$tax[
-                    'id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 6} selected="selected" {/if}
+                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 6} selected="selected" {/if}
                     value="6">Расчётная ставка 18/118</option>
                 </select>
             </div>
