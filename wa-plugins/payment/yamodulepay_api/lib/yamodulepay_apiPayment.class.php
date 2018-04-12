@@ -1,17 +1,18 @@
 <?php
 require_once dirname(__FILE__).'/../vendor/autoload.php';
 
-use YaMoney\Client\YandexMoneyApi;
-use YaMoney\Common\Exceptions\ApiException;
-use YaMoney\Model\ConfirmationType;
-use YaMoney\Model\Notification\NotificationWaitingForCapture;
-use YaMoney\Model\PaymentData\PaymentDataAlfabank;
-use YaMoney\Model\PaymentData\PaymentDataQiwi;
-use YaMoney\Model\PaymentMethodType;
-use YaMoney\Model\PaymentStatus;
-use YaMoney\Request\Payments\CreatePaymentRequest;
-use YaMoney\Request\Payments\CreatePaymentRequestSerializer;
-use YaMoney\Request\Payments\Payment\CreateCaptureRequest;
+use YandexCheckout\Client;
+use YandexCheckout\Common\Exceptions\ApiException;
+use YandexCheckout\Model\ConfirmationType;
+use YandexCheckout\Model\Notification\NotificationSucceeded;
+use YandexCheckout\Model\Notification\NotificationWaitingForCapture;
+use YandexCheckout\Model\PaymentData\PaymentDataAlfabank;
+use YandexCheckout\Model\PaymentData\PaymentDataQiwi;
+use YandexCheckout\Model\PaymentMethodType;
+use YandexCheckout\Model\PaymentStatus;
+use YandexCheckout\Request\Payments\CreatePaymentRequest;
+use YandexCheckout\Request\Payments\CreatePaymentRequestSerializer;
+use YandexCheckout\Request\Payments\Payment\CreateCaptureRequest;
 
 /**
  *
@@ -52,7 +53,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const ORDER_STATE_PROCESS = 'process';
 
 
-    private $version = '1.0.8';
+    private $version = '1.0.9';
     private $order_id;
     private $request;
 
@@ -156,6 +157,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                         'merchant_id' => $this->merchant_id,
                         'native_id'   => $result->getId(),
                         'state'       => self::STATE_AUTH,
+                        'result'      => '',
                     );
 
                     $transactionModel = new waTransactionModel();
@@ -276,94 +278,105 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 }';
                 exit();
             }
-            $body           = @file_get_contents('php://input');
-            $callbackParams = json_decode($body);
-            if (!json_last_error()) {
-                $notificationModel = new NotificationWaitingForCapture($callbackParams);
 
-                $paymentResponce  = $notificationModel->getObject();
-                $transaction      = $this->getTransactionByPaymentId($paymentResponce->id);
-                $transactionModel = new waTransactionModel();
-                $orderModel       = new shopOrderModel();
-                $order            = $orderModel->getOrder($transaction['order_id']);
-                if (!$order) {
-                    header("HTTP/1.1 404 Not Found");
-                    header("Status: 404 Not Found");
-                }
-
-                if ($paymentResponce->getId() && $order) {
-                    $shopId              = $settings['ya_kassa_shopid'];
-                    $shopPassword        = $settings['ya_kassa_pw'];
-                    $apiClient           = $this->getApiClient($shopId, $shopPassword);
-                    $paymentInfoResponse = $apiClient->getPaymentInfo($paymentResponce->getId());
-                    $tries               = 0;
-                    do {
-                        if ($paymentInfoResponse === null) {
-                            $tries++;
-                            if ($tries > 3) {
-                                $this->debugLog('Maximum payment info tries reached');
-                                header("HTTP/1.1 400 Bad Request");
-                                header("Status: 400 Bad Request");
-                                exit();
-                            }
-                            sleep(2);
-                        }
-                    } while ($paymentInfoResponse === null);
-
-                    if ($paymentInfoResponse) {
-                        switch ($paymentInfoResponse->status) {
-                            case PaymentStatus::WAITING_FOR_CAPTURE:
-                                $captureResponse = $this->capturePayment(
-                                    $paymentResponce->getId(),
-                                    $paymentResponce->getAmount(),
-                                    $order
-                                );
-                                if ($captureResponse->status == PaymentStatus::SUCCEEDED) {
-                                    $text = "Номер транзакции в Яндекс.Кассе: {$paymentResponce->getId()}. Сумма: {$paymentResponce->getAmount()}";
-                                    $transactionModel->updateById($transaction['id'],
-                                        array('state' => self::STATE_CAPTURED));
-                                    if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
-                                        $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
-                                    }
-                                } else {
-                                    $transactionModel->updateById($transaction['id'],
-                                        array('state' => self::STATE_CANCELED));
-                                    $this->debugLog('Payment canceled. payment id: '.$paymentResponce->getId());
-                                }
-                                header("HTTP/1.1 200 OK");
-                                header("Status: 200 OK");
-                                break;
-                            case PaymentStatus::PENDING:
-                                header("HTTP/1.1 402 Payment Required");
-                                header("Status: 402 Payment Required");
-                                break;
-                            case PaymentStatus::SUCCEEDED:
-                                $this->changeOrderState($order, self::ORDER_STATE_COMPLETE);
-                                $text = "Номер транзакции в Яндекс.Кассе: {$paymentResponce->getId()}. Сумма: {$paymentResponce->getAmount()}";
-                                $transactionModel->updateById($transaction['id'],
-                                    array('state' => self::STATE_CAPTURED));
-                                if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
-                                    $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
-                                }
-                                header("HTTP/1.1 200 OK");
-                                header("Status: 200 OK");
-                                break;
-                            case PaymentStatus::CANCELED:
-                                $transactionModel->updateById($transaction['id'],
-                                    array('state' => self::STATE_CANCELED));
-                                $this->debugLog('Payment canceled. payment id: '.$paymentResponce->getId());
-
-                                header("HTTP/1.1 200 OK");
-                                header("Status: 200 OK");
-                                break;
-                        }
-                    }
-                }
-            } else {
-                header("HTTP/1.1 400 Bad Request");
-                header("Status: 400 Bad Request");
+            $source = @file_get_contents('php://input');
+            if (empty($source)) {
+                header('HTTP/1.1 400 Empty request body');
+                $this->debugLog('warning: Empty notification request body');
                 exit();
             }
+            $callbackParams = json_decode($source, true);
+            if (empty($callbackParams)) {
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $message = 'empty object in body';
+                } else {
+                    $message = 'invalid object in body: ' . $source;
+                }
+                $this->debugLog('warning: Invalid parameters in capture notification controller - ' . $message);
+                header('HTTP/1.1 400 Invalid json object in body');
+                exit();
+            }
+
+            $this->debugLog('info: Notification: ' . $source);
+
+            try {
+                $notificationModel = ($callbackParams['event'] === YandexCheckout\Model\NotificationEventType::PAYMENT_SUCCEEDED)
+                    ? new NotificationSucceeded($callbackParams)
+                    : new NotificationWaitingForCapture($callbackParams);
+            } catch (\Exception $e) {
+                $this->debugLog('error: Invalid notification object - ' . $e->getMessage());
+                header('HTTP/1.1 400 Invalid object in body');
+                exit();
+            }
+            $paymentResponse = $notificationModel->getObject();
+            $transaction = $this->getTransactionByPaymentId($paymentResponse->id);
+            $transactionModel = new waTransactionModel();
+            $orderModel = new shopOrderModel();
+            $order = $orderModel->getOrder($transaction['order_id']);
+            if (!$order) {
+                header("HTTP/1.1 404 Not Found");
+                header("Status: 404 Not Found");
+                $this->debugLog('error: Order empty ' . $transaction['order_id'] . ' заказа ' . json_encode($order));
+                exit();
+            }
+            $this->debugLog('info: Проведение платежа ' . $notificationModel->getObject()->getId()
+                . ' заказа ' . json_encode($order));
+
+            $shopId = $settings['ya_kassa_shopid'];
+            $shopPassword = $settings['ya_kassa_pw'];
+            $apiClient = $this->getApiClient($shopId, $shopPassword);
+            $paymentResponse = $apiClient->getPaymentInfo($paymentResponse->getId());
+
+            $this->debugLog('debug: $paymentInfoResponse ' . json_encode($paymentResponse));
+
+            switch ($paymentResponse->getStatus()) {
+                case PaymentStatus::WAITING_FOR_CAPTURE:
+                    $captureResponse = $this->capturePayment(
+                        $paymentResponse->getId(),
+                        $paymentResponse->getAmount()
+                    );
+                    if ($captureResponse->getStatus() === PaymentStatus::SUCCEEDED) {
+                        $text = "Номер транзакции в Яндекс.Кассе: {$paymentResponse->getId()}. Сумма: {$paymentResponse->getAmount()->getValue()}";
+                        $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CAPTURED));
+                        if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
+                            $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
+                            $this->debugLog('Payment completed. Payment id: ' . $paymentResponse->getId());
+                        } else {
+                            $this->debugLog('Complete payment fail. Payment id: ' . $paymentResponse->getId());
+                        }
+                    } else {
+                        $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CANCELED));
+                        $this->debugLog('Payment canceled. payment id: ' . $paymentResponse->getId());
+                    }
+                    header("HTTP/1.1 200 OK");
+                    header("Status: 200 OK");
+                    break;
+                case PaymentStatus::PENDING:
+                    $this->debugLog('Pending payment. payment id: ' . $paymentResponse->getId());
+                    header("HTTP/1.1 402 Payment Required");
+                    header("Status: 402 Payment Required");
+                    break;
+                case PaymentStatus::SUCCEEDED:
+                    $text = "Номер транзакции в Яндекс.Кассе: {$paymentResponse->getId()}. Сумма: {$paymentResponse->getAmount()->getValue()}";
+                    $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CAPTURED));
+                    if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
+                        $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
+                        $this->debugLog('Payment completed. Payment id: ' . $paymentResponse->getId());
+                    } else {
+                        $this->debugLog('Complete payment fail. Payment id: ' . $paymentResponse->getId());
+                    }
+                    header("HTTP/1.1 200 OK");
+                    header("Status: 200 OK");
+                    break;
+                case PaymentStatus::CANCELED:
+                    $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CANCELED));
+                    $this->debugLog('Payment canceled. payment id: ' . $paymentResponse->getId());
+
+                    header("HTTP/1.1 200 OK");
+                    header("Status: 200 OK");
+                    break;
+            }
+            exit();
         }
 
         if (waRequest::request('orderNumber')) {
@@ -787,7 +800,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $builder   = CreatePaymentRequest::builder()
                                          ->setAmount($amount)
                                          ->setPaymentMethodData($paymentMethod)
-                                         ->setCapture(false)
+                                         ->setCapture(true)
                                          ->setConfirmation(
                                              array(
                                                  'type'      => $confirmationType,
@@ -848,7 +861,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         try {
             $paymentRequest = $builder->build();
             $receipt        = $paymentRequest->getReceipt();
-            if ($receipt instanceof \YaMoney\Model\Receipt) {
+            if ($receipt instanceof \YandexCheckout\Model\Receipt) {
                 $receipt->normalize($paymentRequest->getAmount());
             }
         } catch (Exception $e) {
@@ -927,11 +940,11 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
      * @param $shopId
      * @param $shopPassword
      *
-     * @return YandexMoneyApi
+     * @return Client
      */
     private function getApiClient($shopId, $shopPassword)
     {
-        $apiClient = new YandexMoneyApi();
+        $apiClient = new Client();
         $apiClient->setAuth($shopId, $shopPassword);
         $that = $this;
         $apiClient->setLogger(
@@ -946,11 +959,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     /**
      * @param $paymentId
      * @param $amount
-     * @param $order
      *
-     * @return \YaMoney\Request\Payments\Payment\CreateCaptureResponse
+     * @return \YandexCheckout\Request\Payments\Payment\CreateCaptureResponse
      */
-    private function capturePayment($paymentId, $amount, $order)
+    private function capturePayment($paymentId, $amount)
     {
         $app_m          = new waAppSettingsModel();
         $settings       = $app_m->get('shop.yamodule_api');
@@ -959,21 +971,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $apiClient      = $this->getApiClient($shopId, $shopPassword);
         $captureRequest = CreateCaptureRequest::builder()->setAmount($amount)->build();
 
-        $tries = 0;
-        do {
-            $result = $apiClient->capturePayment(
-                $captureRequest,
-                $paymentId,
-                $paymentId
-            );
-            if ($result === null) {
-                $tries++;
-                if ($tries > 3) {
-                    break;
-                }
-                sleep(2);
-            }
-        } while ($result === null);
+        $result = $apiClient->capturePayment($captureRequest, $paymentId, $paymentId);
 
         return $result;
     }
@@ -1028,24 +1026,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $paymentId        = $transactionData['native_id'];
 
         try {
-            $tries  = 0;
             $result = $apiClient->getPaymentInfo($paymentId);
-            do {
-                if ($result === null) {
-                    $tries++;
-                    if ($tries > 3) {
-                        $this->debugLog('Maximum payment info tries reached');
-                        wa()->getResponse()->redirect(
-                            $this->getAdapter()->getBackUrl(waAppPayment::URL_FAIL, $transactionData)
-                        );
-                    }
-                    sleep(2);
-                }
-            } while ($result === null);
-
 
             if ($result->status == PaymentStatus::WAITING_FOR_CAPTURE) {
-                $captureRequest = $this->capturePayment($paymentId, $result->getAmount(), $order);
+                $captureRequest = $this->capturePayment($paymentId, $result->getAmount());
                 if ($captureRequest->status == PaymentStatus::SUCCEEDED) {
                     $text = "Номер транзакции в Яндекс.Кассе: {$paymentId}. Сумма: {$result->getAmount()->getValue()}";
                     $transactionModel->updateById($transactionData['id'], array('state' => self::STATE_CAPTURED));
@@ -1074,6 +1058,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 }
                 $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_SUCCESS, $transactionData);
                 $this->debugLog('Payment succeeded. Redirect: '.$redirect);
+                wa()->getResponse()->redirect($redirect);
+            } elseif (($result->status == PaymentStatus::PENDING) && $result->getPaid()) {
+                $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_SUCCESS, $transactionData);
+                $this->debugLog('Payment pending and paid. Redirect: ' . $redirect);
                 wa()->getResponse()->redirect($redirect);
             } else {
                 $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_FAIL, $transactionData);

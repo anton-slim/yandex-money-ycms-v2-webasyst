@@ -1,8 +1,8 @@
 <?php
 
-use YaMoney\Client\YandexMoneyApi;
-use YaMoney\Request\Refunds\CreateRefundRequest;
-use YaMoney\Request\Refunds\CreateRefundRequestSerializer;
+use YandexCheckout\Client;
+use YandexCheckout\Request\Refunds\CreateRefundRequest;
+use YandexCheckout\Request\Refunds\CreateRefundRequestSerializer;
 
 class shopYamodule_apiPlugin extends shopPlugin
 {
@@ -135,7 +135,7 @@ class shopYamodule_apiPlugin extends shopPlugin
             $settings     = $app->get('shop.yamodule_api');
             $shopId       = $settings['ya_kassa_shopid'];
             $shopPassword = $settings['ya_kassa_pw'];
-            $apiClient    = new YandexMoneyApi();
+            $apiClient    = new Client();
             $apiClient->setAuth($shopId, $shopPassword);
             $that = $this;
             $apiClient->setLogger(
@@ -156,7 +156,7 @@ class shopYamodule_apiPlugin extends shopPlugin
             } while ($response == null);
 
             if ($response) {
-                if ($response->status == \YaMoney\Model\RefundStatus::SUCCEEDED) {
+                if ($response->status == \YandexCheckout\Model\RefundStatus::SUCCEEDED) {
                     $this->debugLog('Refund create success');
                     $orderRefundModel = new orderRefundModel();
                     $orderRefundModel->add(
@@ -173,7 +173,7 @@ class shopYamodule_apiPlugin extends shopPlugin
                     );
 
                     return array('status' => 'success');
-                } elseif ($response->status == \YaMoney\Model\RefundStatus::CANCELED) {
+                } elseif ($response->status == \YandexCheckout\Model\RefundStatus::CANCELED) {
                     $this->debugLog('Refund create failed');
                 }
             } else {
@@ -274,14 +274,14 @@ class shopYamodule_apiPlugin extends shopPlugin
     public static function settingsPaymentOptions($type)
     {
         $tp = array(
-            \YaMoney\Model\PaymentMethodType::YANDEX_MONEY   => 'Яндекс.Деньги',
-            \YaMoney\Model\PaymentMethodType::BANK_CARD      => 'Банковские карты — Visa, Mastercard и Maestro, «Мир»',
-            \YaMoney\Model\PaymentMethodType::CASH           => 'Наличные',
-            \YaMoney\Model\PaymentMethodType::MOBILE_BALANCE => 'Оплата со счета мобильного телефона',
-            \YaMoney\Model\PaymentMethodType::WEBMONEY       => 'WebMoney',
-            \YaMoney\Model\PaymentMethodType::SBERBANK       => 'Сбербанк Онлайн',
-            \YaMoney\Model\PaymentMethodType::ALFABANK       => 'Альфа-Клик',
-            \YaMoney\Model\PaymentMethodType::QIWI           => ' QIWI Wallet',
+            \YandexCheckout\Model\PaymentMethodType::YANDEX_MONEY   => 'Яндекс.Деньги',
+            \YandexCheckout\Model\PaymentMethodType::BANK_CARD      => 'Банковские карты — Visa, Mastercard и Maestro, «Мир»',
+            \YandexCheckout\Model\PaymentMethodType::CASH           => 'Наличные',
+            \YandexCheckout\Model\PaymentMethodType::MOBILE_BALANCE => 'Оплата со счета мобильного телефона',
+            \YandexCheckout\Model\PaymentMethodType::WEBMONEY       => 'WebMoney',
+            \YandexCheckout\Model\PaymentMethodType::SBERBANK       => 'Сбербанк Онлайн',
+            \YandexCheckout\Model\PaymentMethodType::ALFABANK       => 'Альфа-Клик',
+            \YandexCheckout\Model\PaymentMethodType::QIWI           => ' QIWI Wallet',
         );
 
         return isset($tp[$type]) ? $tp[$type] : $type;
@@ -551,7 +551,7 @@ class shopYamodule_apiPlugin extends shopPlugin
         $settings           = $app->get('shop.yamodule_api');
         $shopId             = $settings['ya_kassa_shopid'];
         $shopPassword       = $settings['ya_kassa_pw'];
-        $apiClient          = new YandexMoneyApi();
+        $apiClient          = new Client();
         $apiClient->setAuth($shopId, $shopPassword);
         $that = $this;
         $apiClient->setLogger(
@@ -664,12 +664,12 @@ class shopYamodule_apiPlugin extends shopPlugin
         }
         require_once $file;
 
-        $apiClient = new YandexMoneyApi();
+        $apiClient = new Client();
         $apiClient->setAuth($shopId, $password);
 
         try {
             $payment = $apiClient->getPaymentInfo('00000000-0000-0000-0000-000000000001');
-        } catch (\YaMoney\Common\Exceptions\NotFoundException $e) {
+        } catch (\YandexCheckout\Common\Exceptions\NotFoundException $e) {
             return true;
         } catch (\Exception $e) {
             return false;

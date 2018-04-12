@@ -6,7 +6,6 @@ $vendorDir = dirname(dirname(__FILE__));
 $baseDir = dirname($vendorDir);
 
 return array(
-    'YaMoney\\CodeGeneratorBundle\\' => array($vendorDir . '/yandex-money/yandex-money-sdk-php/code-generator/CodeGeneratorBundle'),
-    'YaMoney\\' => array($vendorDir . '/yandex-money/yandex-money-sdk-php/lib'),
+    'YandexCheckout\\' => array($vendorDir . '/yandex-money/yandex-checkout-sdk-php/lib'),
     'Psr\\Log\\' => array($vendorDir . '/psr/log/Psr/Log'),
 );

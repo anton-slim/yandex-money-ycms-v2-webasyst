@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "content-hash": "e3596fe0eeae200700ce628664d5797b",
+    "content-hash": "942c286b9b09153e5e1d7beb51ec5e4b",
     "packages": [
         {
             "name": "psr/log",
@@ -54,12 +54,18 @@
             "time": "2016-10-10T12:19:37+00:00"
         },
         {
-            "name": "yandex-money/yandex-money-sdk-php",
-            "version": "dev-dev",
+            "name": "yandex-money/yandex-checkout-sdk-php",
+            "version": "1.0.6",
             "source": {
                 "type": "git",
-                "url": "ssh://git@bitbucket-public.yamoney.ru/cms/php-sdk-api.git",
-                "reference": "cb1b576b0655ed0a0dc40b932983fa29c32b6d47"
+                "url": "https://github.com/yandex-money/yandex-checkout-sdk-php.git",
+                "reference": "56cfc297b7b004b6a217c092713f3e843ef14314"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/yandex-money/yandex-checkout-sdk-php/zipball/56cfc297b7b004b6a217c092713f3e843ef14314",
+                "reference": "56cfc297b7b004b6a217c092713f3e843ef14314",
+                "shasum": ""
             },
             "require": {
                 "ext-curl": "*",
@@ -71,26 +77,25 @@
             "require-dev": {
                 "ext-xml": "*",
                 "mockery/mockery": "^0.9.9",
-                "phpunit/phpunit": "4.*",
-                "symfony/console": "*",
-                "symfony/yaml": "*"
+                "phpunit/phpunit": "4.*"
             },
             "type": "library",
             "autoload": {
                 "psr-4": {
-                    "YaMoney\\CodeGeneratorBundle\\": "code-generator/CodeGeneratorBundle/",
-                    "YaMoney\\": "lib/"
+                    "YandexCheckout\\": "lib/"
                 }
             },
-            "time": "2017-10-04T15:07:15+00:00"
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "time": "2018-03-29T14:39:53+00:00"
         }
     ],
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {
-        "yandex-money/yandex-money-sdk-php": 20
-    },
+    "stability-flags": [],
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
