@@ -9,8 +9,7 @@ class ComposerStaticInit31b4e167450311632267b02b6fdaa9a9
     public static $prefixLengthsPsr4 = array (
         'Y' => 
         array (
-            'YaMoney\\CodeGeneratorBundle\\' => 28,
-            'YaMoney\\' => 8,
+            'YandexCheckout\\' => 15,
         ),
         'P' => 
         array (
@@ -19,13 +18,9 @@ class ComposerStaticInit31b4e167450311632267b02b6fdaa9a9
     );
 
     public static $prefixDirsPsr4 = array (
-        'YaMoney\\CodeGeneratorBundle\\' => 
+        'YandexCheckout\\' => 
         array (
-            0 => __DIR__ . '/..' . '/yandex-money/yandex-money-sdk-php/code-generator/CodeGeneratorBundle',
-        ),
-        'YaMoney\\' => 
-        array (
-            0 => __DIR__ . '/..' . '/yandex-money/yandex-money-sdk-php/lib',
+            0 => __DIR__ . '/..' . '/yandex-money/yandex-checkout-sdk-php/lib',
         ),
         'Psr\\Log\\' => 
         array (
