@@ -78,55 +78,7 @@ $(document).ready(function() {
         });
     });
 
-    if (strpos(location.href, '&code='))
-    {
-        var get = parseGetParams();
-        if (get.code && get.state)
-        {
-            var data = new Object();
-            data.genToken = 1;
-            data.type = get.state;
-            data.code = get.code;
-            $.ajax({
-                type: 'POST',
-                url: '?plugin=yamodule_api&module=settings',
-                data: data,
-                dataType: 'Json',
-                success: function(jsonData){
-                    if (jsonData.error){
-                        alert(jsonData.error + ' : ' + jsonData.error_description);
-                    }else{
-                        if (jsonData.token)
-                        {
-                            $('#ya_'+ get.state + '_token').val(jsonData.token);
-                            location.href = jsonData.url;
-                            // $('section #'+get.state+' form').submit();
-                        } else {
-                            alert('Ошибка получения токена! Обратитесь в поддержку.');
-                        }
-                    }
-                },
-            });
-        }
-        console.log(parseGetParams());
-    }
 });
-
-function parseGetParams() { 
-   var $_GET = {};
-   var url = window.location.href.replace('#/yamodule_api/', '');
-   var __GET = url.split("&"); 
-   for(var i=0; i<__GET.length; i++) { 
-      var getVar = __GET[i].split("="); 
-      $_GET[getVar[0]] = typeof(getVar[1])=="undefined" ? "" : getVar[1]; 
-   } 
-   return $_GET; 
-} 
-
-function strpos( haystack, needle, offset){
-    var i = haystack.indexOf( needle, offset );
-    return i >= 0 ? i : false;
-}
 
 $.fn.serializeObject = function () {
     var o = {};

@@ -66,6 +66,11 @@
             name="ya_kassa_paylogo" class="input" value="1">
             <label for="ya_kassa_paylogo">[`Назвать кнопку оплаты «Заплатить через Яндекс»`]</label><br/>
         </div>
+        <div class="value">
+            <input {if isset($ya_kassa_installments_button) && $ya_kassa_installments_button} checked="checked" {/if} id="ya_kassa_installments_button" type="checkbox"
+            name="ya_kassa_installments_button" class="input" value="1">
+            <label for="ya_kassa_installments_button">[`Добавить кнопку «Заплатить по частям» на страницу оформления заказа`]</label><br/>
+        </div>
     </div>
     <div class="field kassa_methods">
         <div class="name">
@@ -93,6 +98,9 @@
             <input{if $ya_kassa_qw} checked="checked" {/if} id="ya_kassa_qw" type="checkbox" name="ya_kassa_qw"
             class="input" value="1">
             <label for="ya_kassa_qw">[`QIWI Wallet`]</label><br/>
+            <input{if isset($ya_kassa_installments) && $ya_kassa_installments} checked="checked" {/if}
+            id="ya_kassa_installments" name="ya_kassa_installments" type="checkbox" class="input" value="1">
+            <label for="ya_kassa_installments">[`Заплатить по частям`]</label><br/>
         </div>
     </div>
     <div class="field">

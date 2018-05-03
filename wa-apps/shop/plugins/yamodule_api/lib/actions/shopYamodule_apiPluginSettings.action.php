@@ -44,15 +44,15 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $settings = $sm->get($this->plugin_id);
 
         if (waRequest::request('code') && waRequest::request('genToken')) {
-            if (waRequest::request('type') == 'metrika') {
-                $token = $this->gocurl(
+            if (waRequest::request('state') == 'metrika') {
+                $this->gocurl(
                     'm',
                     'grant_type=authorization_code&code='.waRequest::request(
                         'code'
                     ).'&client_id='.$settings['ya_metrika_appid'].'&client_secret='.$settings['ya_metrika_pwapp']
                 );
             } else {
-                $token = $this->gocurl(
+                $this->gocurl(
                     'p',
                     'grant_type=authorization_code&code='.waRequest::request(
                         'code'
@@ -60,11 +60,8 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
                 );
             }
 
-            exit(
-            json_encode(
-                array('token' => $token, 'url' => wa()->getRootUrl(true).'webasyst/shop/?action=plugins#/yamodule_api/')
-            )
-            );
+            header('Location: ' . wa()->getRootUrl(true).'webasyst/shop/?action=plugins#/yamodule_api/');
+            exit();
         }
 
         $settings['ya_pokupki_carrier']   = unserialize($settings['ya_pokupki_carrier']);
@@ -105,8 +102,8 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $this->view->assign('ya_kassa_fail', $this->getRelayUrl().'?result=fail');
         $this->view->assign('ya_kassa_success', $this->getRelayUrl().'?result=success');
         $this->view->assign('ya_p2p_callback', $this->getRelayUrl(true));
-        $this->view->assign('ya_pokupki_callback', $root . 'webasyst/shop/?action=plugins#/yamodule_api/');
-        $this->view->assign('ya_metrika_callback', $root . 'webasyst/shop/?action=plugins#/yamodule_api/');
+        $this->view->assign('ya_pokupki_callback', $root . 'payments.php/yamodulepay_api/?action=callback&genToken=1');
+        $this->view->assign('ya_metrika_callback', $root . 'payments.php/yamodulepay_api/?action=callback&genToken=1');
         $this->view->assign(
             'ya_market_yml',
             str_replace(

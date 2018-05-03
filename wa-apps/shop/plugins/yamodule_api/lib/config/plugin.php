@@ -4,7 +4,7 @@ return array(
     'name' => 'Y.CMS Shop-Script 2',
     'description' => 'Набор модулей Яндекс (Яндекс.Деньги, Яндекс.Маркет, Яндекс.Метрика)',
     'vendor' => '98765',
-    'version' => '1.0.9',
+    'version' => '1.0.10',
     'img' => '/img/logo.png',
     'frontend' => true,
     'shop_settings' => true,
@@ -16,5 +16,7 @@ return array(
         'order_action.delete' => 'yaOrderDel',
         'order_action.ship' => 'yaOrderShip',
         'order_action.refund' => 'yaOrderRefund',
+        'frontend_head' => 'yaFrontendHead',
+        'frontend_product' => 'yaFrontendProduct',
     ),
 );

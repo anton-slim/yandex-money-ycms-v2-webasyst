@@ -52,8 +52,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const ORDER_STATE_CANCELED = 'canceled';
     const ORDER_STATE_PROCESS = 'process';
 
+    const INSTALLMENTS_MIN_AMOUNT = 3000;
 
-    private $version = '1.0.9';
+
+    private $version = '1.0.10';
     private $order_id;
     private $request;
 
@@ -138,14 +140,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         );
 
         $view = wa()->getView();
+        $view->assign('amount', $order_data['total']);
+        $view->assign('shop_id', $data['ya_kassa_shopid']);
         if ((bool)$data['ya_kassa_active']) {
-            if ($data['ya_kassa_inside'] == 0
-                || (
-                    isset($payment_form_data['paymentType'])
-                    && $this->validate($payment_form_data)
-                )
-            ) {
-
+            if (isset($payment_form_data['paymentType']) && $this->validate($payment_form_data)) {
                 $this->debugLog('Payment init');
                 $result = $this->createPayment($order_data, $payment_form_data, $data);
 
@@ -263,6 +261,11 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         }
 
         if (isset($request['action']) && $request['action'] == 'callback') {
+            if (!empty($request['genToken'])) {
+                (new shopYamodule_apiPluginSettingsAction())->execute();
+                exit();
+            }
+
             if (waRequest::getMethod() == 'get') {
                 $version       = wa()->getVersion('webasyst');
                 $versionChunks = explode('.', $version);
@@ -672,6 +675,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         }
         $view->assign('inside', $paymentInfo['ya_kassa_inside']);
         $view->assign('paylogo', $paymentInfo['ya_kassa_paylogo']);
+        $view->assign('installments_button', $paymentInfo['ya_kassa_installments_button']);
         $view->assign('alfa', $paymentInfo['ya_kassa_alfa']);
         $view->assign('wm', $paymentInfo['ya_kassa_wm']);
         $view->assign('sber', $paymentInfo['ya_kassa_sber']);
@@ -683,6 +687,9 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $view->assign('ma', $paymentInfo['ya_kassa_ma']);
         $view->assign('qw', $paymentInfo['ya_kassa_qw']);
         $view->assign('qp', $paymentInfo['ya_kassa_qp']);
+        if ($orderData->total >= self::INSTALLMENTS_MIN_AMOUNT) {
+            $view->assign('installments', $paymentInfo['ya_kassa_installments']);
+        }
         $view->assign('kassa', true);
     }
 
@@ -768,7 +775,8 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
 
     private function createPayment($orderData, $paymentFormData, $data)
     {
-        $paymentMethod = $this->getPaymentMethod($paymentFormData['paymentType']);
+        $paymentType = isset($paymentFormData['paymentType']) ? $paymentFormData['paymentType'] : null;
+        $paymentMethod = $this->getPaymentMethod($paymentType);
         $order         = waOrder::factory($orderData);
         $shopId        = $data['ya_kassa_shopid'];
         $shopPassword  = $data['ya_kassa_pw'];
@@ -841,8 +849,6 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 $builder->setReceiptEmail($email);
             }
 
-            $builder->setTaxSystemCode(self::DEFAULT_TAX_RATE);
-
             $items = $this->extendItems($orderData);
             foreach ($items as $product) {
                 $taxId = 'ya_kassa_tax_'.$product['tax_id'];
@@ -850,12 +856,12 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 if (isset($taxValues[$taxId])) {
                     $builder->addReceiptItem($product['name'], $price, $product['quantity'], $taxValues[$taxId]);
                 } else {
-                    $builder->addReceiptItem($product['name'], $price, $product['quantity']);
+                    $builder->addReceiptItem($product['name'], $price, $product['quantity'], self::DEFAULT_TAX_RATE);
                 }
             }
 
             if ($orderData['shipping'] > 0) {
-                $builder->addReceiptShipping($orderData['shipping_name'], $orderData['shipping'], 1);
+                $builder->addReceiptShipping($orderData['shipping_name'], $orderData['shipping'], self::DEFAULT_TAX_RATE);
             }
         }
         try {
@@ -895,20 +901,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $idempotencyKey = base64_encode($orderData->data['id_str'].str_replace('.', '-', microtime(true)));
         $this->debugLog('Idempotency Key: '.$idempotencyKey);
         try {
-            $tries = 0;
-            do {
-                $response = $apiClient->createPayment(
-                    $paymentRequest,
-                    $idempotencyKey
-                );
-                if ($response === null) {
-                    $tries++;
-                    if ($tries > 3) {
-                        return null;
-                    }
-                    sleep(2);
-                }
-            } while ($response === null);
+            $response = $apiClient->createPayment($paymentRequest, $idempotencyKey);
 
             return $response;
         } catch (ApiException $e) {
@@ -927,9 +920,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
             'SB' => PaymentMethodType::SBERBANK,
             'AB' => PaymentMethodType::ALFABANK,
             'QW' => PaymentMethodType::QIWI,
+            'installments' => PaymentMethodType::INSTALLMENTS,
         );
 
-        if (in_array($paymentType, array_keys($paymentMethodsMap))) {
+        if (isset($paymentMethodsMap[$paymentType])) {
             return $paymentMethodsMap[$paymentType];
         } else {
             return null;
@@ -985,6 +979,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     protected function getTransactionByOrder($transactionModel, $order)
     {
         $transactions = $transactionModel->getByFields(array('order_id' => $order['id']));
+        $transactionData = null;
         if ($transactions) {
             $transactionData = array_shift($transactions);
         }
