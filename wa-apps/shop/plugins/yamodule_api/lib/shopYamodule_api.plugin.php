@@ -281,7 +281,8 @@ class shopYamodule_apiPlugin extends shopPlugin
             \YandexCheckout\Model\PaymentMethodType::WEBMONEY       => 'WebMoney',
             \YandexCheckout\Model\PaymentMethodType::SBERBANK       => 'Сбербанк Онлайн',
             \YandexCheckout\Model\PaymentMethodType::ALFABANK       => 'Альфа-Клик',
-            \YandexCheckout\Model\PaymentMethodType::QIWI           => ' QIWI Wallet',
+            \YandexCheckout\Model\PaymentMethodType::QIWI           => 'QIWI Wallet',
+            \YandexCheckout\Model\PaymentMethodType::INSTALLMENTS   => 'Заплатить по частям',
         );
 
         return isset($tp[$type]) ? $tp[$type] : $type;
@@ -676,5 +677,45 @@ class shopYamodule_apiPlugin extends shopPlugin
         }
 
         return true;
+    }
+
+    public function yaFrontendHead()
+    {
+        return '
+<style>.installments-info{padding-top: 20px;}</style>
+<script src="https://static.yandex.net/kassa/pay-in-parts/ui/v1"></script>
+';
+    }
+
+    /**
+     * @param shopProduct $data
+     * @return array
+     */
+    public function yaFrontendProduct($data)
+    {
+        $sm = new waAppSettingsModel();
+        $shopData = $sm->get('shop.yamodule_api');
+        $shopId = $shopData['ya_kassa_shopid'];
+
+        ob_start(); ?>
+        <div class="installments-info"></div>
+        <script>
+            const $yamoneyCheckoutCreditUI = YandexCheckoutCreditUI({
+                shopId: <?= $shopId; ?>,
+                sum: "<?= $data['data']['price']; ?>",
+                language: "ru"
+            });
+            $yamoneyCheckoutCreditUI({
+                type: "info",
+                domSelector: ".installments-info"
+            });
+        </script>
+        <?php
+        $html = ob_get_contents();
+        ob_end_clean();
+
+        return [
+            'cart' => $html
+        ];
     }
 }
