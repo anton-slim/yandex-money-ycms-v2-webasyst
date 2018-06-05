@@ -152,6 +152,11 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $this->view->assign('ya_billing_statuses', $states);
 
         $this->view->assign($settings);
+
+        $ya_kassa_description_template = !empty($settings['ya_kassa_description_template'])
+            ? $settings['ya_kassa_description_template']
+            : 'Оплата заказа №%id%';
+        $this->view->assign('ya_kassa_description_template', $ya_kassa_description_template);
     }
 
     public final function getRelayUrl($force_https = true)
