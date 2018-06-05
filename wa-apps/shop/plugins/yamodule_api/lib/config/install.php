@@ -63,6 +63,7 @@ $data_db            = array(
     'ya_kassa_pw'             => '',
     'ya_kassa_scid'           => '',
     'ya_kassa_shopid'         => '',
+    'ya_kassa_description_template' => '',
     'status'                  => 'you',
     'update_time'             => '1',
     'ya_kassa_test'           => '1',

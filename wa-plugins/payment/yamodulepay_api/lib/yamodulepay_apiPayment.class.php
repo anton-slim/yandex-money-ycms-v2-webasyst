@@ -6,6 +6,7 @@ use YandexCheckout\Common\Exceptions\ApiException;
 use YandexCheckout\Model\ConfirmationType;
 use YandexCheckout\Model\Notification\NotificationSucceeded;
 use YandexCheckout\Model\Notification\NotificationWaitingForCapture;
+use YandexCheckout\Model\Payment;
 use YandexCheckout\Model\PaymentData\PaymentDataAlfabank;
 use YandexCheckout\Model\PaymentData\PaymentDataQiwi;
 use YandexCheckout\Model\PaymentMethodType;
@@ -55,7 +56,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const INSTALLMENTS_MIN_AMOUNT = 3000;
 
 
-    private $version = '1.0.10';
+    private $version = '1.0.11';
     private $order_id;
     private $request;
 
@@ -809,6 +810,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                                          ->setAmount($amount)
                                          ->setPaymentMethodData($paymentMethod)
                                          ->setCapture(true)
+                                         ->setDescription($this->createDescription($order, $data))
                                          ->setConfirmation(
                                              array(
                                                  'type'      => $confirmationType,
@@ -1134,5 +1136,33 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 'text'            => $text,
             )
         );
+    }
+
+    /**
+     * @param ArrayAccess $order
+     * @param $settings
+     * @return bool|string
+     */
+    private function createDescription($order, $settings)
+    {
+        $descriptionTemplate = !empty($settings['ya_kassa_description_template'])
+            ? $settings['ya_kassa_description_template']
+            : 'Оплата заказа №%id%';
+
+        $replace  = array();
+        $patterns = explode('%', $descriptionTemplate);
+        foreach ($patterns as $pattern) {
+            if (!isset($order[$pattern])) {
+                continue;
+            }
+            $value = $order[$pattern];
+            if (is_scalar($value)) {
+                $replace['%'.$pattern.'%'] = $value;
+            }
+        }
+
+        $description = strtr($descriptionTemplate, $replace);
+
+        return (string)mb_substr($description, 0, Payment::MAX_LENGTH_DESCRIPTION);
     }
 }

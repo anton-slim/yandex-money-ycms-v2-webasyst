@@ -105,6 +105,18 @@
     </div>
     <div class="field">
         <div class="name">
+            <label for="ya_kassa_description_template">[`Описание платежа`]</label>
+        </div>
+        <div class="value">
+            <input id="ya_kassa_description_template" type="text" name="ya_kassa_description_template" class="input"
+                   value="{$ya_kassa_description_template}">
+            <br><span class="help-block">[`Это описание транзакции, которое пользователь увидит при оплате, а вы — в личном кабинете Яндекс.Кассы. Например, «Оплата заказа №72».<br>
+Чтобы в описание подставлялся номер заказа (как в примере), поставьте на его месте %id% (Оплата заказа №%id%).<br>
+Ограничение для описания — 128 символов.`]</span>
+        </div>
+    </div>
+    <div class="field">
+        <div class="name">
             <label for="ya_kassa_send_check">[`Отправлять в Яндекс.Кассу данные для чеков (54-ФЗ)`]</label>
         </div>
         <div class="value">
