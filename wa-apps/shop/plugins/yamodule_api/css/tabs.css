@@ -55,8 +55,7 @@ section {
 #moneyorg:checked ~ #moneyorg,
 #money:checked ~ #money,
 #metrika:checked ~ #metrika,
-#market:checked ~ #market,
-#marketp:checked ~ #marketp {
+#market:checked ~ #market {
     display: block;
 }
 

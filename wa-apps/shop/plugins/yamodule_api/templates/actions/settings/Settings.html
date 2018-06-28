@@ -31,9 +31,6 @@
     <input id="market" type="radio" name="tabs" checked>
     <label for="market" title="[`Яндекс.Маркет`]">[`Яндекс.Маркет`]</label>
 
-    <input id="marketp" type="radio" name="tabs" checked>
-    <label for="marketp" title="[`Заказы в Маркете`]">[`Заказы в Маркете`]</label>
-
     <section id="money">
         <div class="p2p_errors"></div>
         {include file='./p2p.html' inline}
@@ -61,10 +58,6 @@
     <section id="market">
         <div class="market_errors"></div>
         {include file="./market.html" inline}
-    </section>
-    <section id="marketp">
-        <div class="pokupki_errors"></div>
-        {include file="./pokupki.html" inline}
     </section>
 </div>
 <script type="text/javascript" src="{$wa_app_static_url}plugins/yamodule_api/js/jquery.total-storage.js"></script>
@@ -152,8 +145,6 @@
     }
 
     $(document).ready(function () {
-        setValidator('ya_pokupki_cr', /^[0-9]*$/);
-        setValidator('ya_pokupki_campaign', /^[0-9]*$/);
         setValidator('ya_market_price', /^[0-9]*$/);
 
         $('.tree-item-name label').click(function () {

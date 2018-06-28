@@ -8,17 +8,6 @@ $sql1  = 'CREATE TABLE IF NOT EXISTS `shop_ym_order_receipt` (
             INDEX `order_id` (`order_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
 
-$sql2 = 'CREATE TABLE IF NOT EXISTS `shop_pokupki_orders` (
-		  `id_order` int(10) NOT NULL,
-		  `id_market_order` varchar(100) NOT NULL,
-		  `currency` varchar(100) NOT NULL,
-		  `ptype` varchar(100) NOT NULL,
-		  `home` varchar(100) NOT NULL,
-		  `pmethod` varchar(100) NOT NULL,
-		  `outlet` varchar(100) NOT NULL,
-		  PRIMARY KEY (`id_order`,`id_market_order`)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8;';
-
 $sql_mws = 'CREATE TABLE IF NOT EXISTS `shop_ym_order_refund` (
                 `id` INT(10) NOT NULL AUTO_INCREMENT,
                 `payment_id` VARCHAR(256) NOT NULL,
@@ -81,11 +70,7 @@ $data_db            = array(
     'ya_metrika_token'        => '',
     'ya_metrika_ww'           => '1',
     'ya_metrika_map'          => '1',
-    'ya_metrika_out'          => '1',
-    'ya_metrika_refused'      => '1',
     'ya_metrika_hash'         => '1',
-    'ya_metrika_cart'         => '1',
-    'ya_metrika_order'        => '1',
     'ya_metrika_log'          => '1',
     'ya_market_simpleyml'     => '0',
     'ya_market_selected'      => '1',
@@ -102,25 +87,9 @@ $data_db            = array(
     'ya_market_delivery'      => '',
     'ya_market_pickup'        => '',
     'ya_market_log'           => '1',
-    'ya_pokupki_atoken'       => '',
-    'ya_pokupki_url'          => 'https://api.partner.market.yandex.ru/v2/',
-    'ya_pokupki_campaign'     => '',
-    'ya_pokupki_login'        => '',
-    'ya_pokupki_userpw'       => '',
-    'ya_pokupki_appid'        => '',
-    'ya_pokupki_pwapp'        => '',
-    'ya_pokupki_token'        => '',
-    'ya_pokupki_pickup'       => '',
-    'ya_pokupki_yandex'       => '1',
-    'ya_pokupki_sprepaid'     => '',
-    'ya_pokupki_cash'         => '1',
-    'ya_pokupki_card'         => '1',
-    'ya_pokupki_log'          => '1',
     'ya_metrika_code'         => ' ',
     'ya_metrika_informer'     => '1',
-    'ya_pokupki_carrier'      => '',
     'ya_market_vendor'        => '',
-    'ya_pokupki_rate'         => '',
     'ya_market_currency'      => 'RUB',
     'ya_market_categories'    => '',
     'ya_plugin_contact'       => '',

@@ -146,15 +146,7 @@ class shopYamodule_apiPlugin extends shopPlugin
             $idempotencyKey = base64_encode($orderId.'/'.microtime());
             $this->debugLog('Idempotency key: '.$idempotencyKey);
 
-            $tries = 0;
-            do {
-                $response = $apiClient->createRefund($refundRequest, $idempotencyKey);
-                $tries++;
-                if ($tries > 3) {
-                    break;
-                }
-            } while ($response == null);
-
+            $response = $apiClient->createRefund($refundRequest, $idempotencyKey);
             if ($response) {
                 if ($response->status == \YandexCheckout\Model\RefundStatus::SUCCEEDED) {
                     $this->debugLog('Refund create success');
@@ -189,7 +181,7 @@ class shopYamodule_apiPlugin extends shopPlugin
                 $taxValues[$k] = $v;
                 continue;
             }
-            if ($k == 'ya_pokupki_carrier' || $k == 'ya_pokupki_rate' || $k == 'ya_market_categories') {
+            if ($k == 'ya_market_categories') {
                 $v = serialize($v);
             }
             $sm->set('shop.yamodule_api', $k, $v);
@@ -211,12 +203,6 @@ class shopYamodule_apiPlugin extends shopPlugin
             'ya_metrika_token'    => _w('Не заполнен токен. Получите его'),
             'ya_market_name'      => _w('Не заполнено имя магазина'),
             'ya_market_price'     => _w('Не заполнена цена'),
-            'ya_pokupki_atoken'   => _w('Не заполнен токен. Получите его'),
-            'ya_pokupki_url'      => _w('Не заполнена ссылка'),
-            'ya_pokupki_appid'    => _w('Не заполнен id приложения'),
-            'ya_pokupki_pwapp'    => _w('Не заполнен пароль приложения'),
-            'ya_pokupki_campaign' => _w('Не заполнен номер кампании'),
-            'ya_pokupki_token'    => _w('Не заполнен токен. Получите его'),
             'ya_billing_id'       => _w('Не указан ID формы'),
             'ya_billing_purpose'  => _w('Не указано назначение платежа'),
             'ya_billing_status'   => _w('Не указан статус заказа'),
@@ -225,21 +211,31 @@ class shopYamodule_apiPlugin extends shopPlugin
         $this->formValidate($sm, $array_fields);
 
         $all_ok = _w('Все настройки верно заполнены!');
-        $arr    = array('p2p', 'kassa', 'market', 'pokupki', 'metrika', 'yabilling');
+        $arr    = array('p2p', 'kassa', 'market', 'metrika', 'yabilling');
         if (waRequest::request('mode') == 'metrika') {
-            $ymetrika = new YaMetrika();
-            $ymetrika->initData($data['ya_metrika_token'], $data['ya_metrika_number']);
-            $ymetrika->client_id     = $data['ya_metrika_appid'];
-            $ymetrika->client_secret = $data['ya_metrika_pwapp'];
-            $ymetrika->processCounter();
-            $this->errors['metrika'] = array_merge($this->errors['metrika'], $_SESSION['metrika_status']);
+            $_SESSION['metrika_errors'] = array();
+            $oldSettings = $data;
+            $settings    = $sm->get('shop.yamodule_api');
+            $ymetrika    = new YaMetrika(
+                $settings['ya_metrika_token'],
+                $settings['ya_metrika_number'],
+                $settings['ya_metrika_appid'],
+                $settings['ya_metrika_pwapp']
+            );
+            if ($ymetrika->isNeedUpdateToken($oldSettings)) {
+                $sm->set('shop.yamodule_api', 'ya_metrika_token', '');
+            }
+            if ($ymetrika->isNeedUpdateCode($settings, $oldSettings)) {
+                $sm->set('shop.yamodule_api', 'ya_metrika_code', '');
+                $ymetrika->updateCode();
+            }
+            $this->errors['metrika'] = array_merge($this->errors['metrika'], $_SESSION['metrika_errors']);
         }
         foreach ($arr as $a) {
             if (!isset($this->errors[$a]) || !count($this->errors[$a])) {
                 $this->errors[$a][] = $this->success_alert($all_ok);
             }
         }
-
 
         return array('errors' => $this->errors);
     }
@@ -288,109 +284,6 @@ class shopYamodule_apiPlugin extends shopPlugin
         return isset($tp[$type]) ? $tp[$type] : $type;
     }
 
-    public function yaOrderShip($data)
-    {
-        require_once dirname(__FILE__).'/../api/pokupki.php';
-        $dbm      = new waModel();
-        $order    = $dbm->query(
-            "SELECT * FROM `shop_pokupki_orders` WHERE id_order = ".(int)$data['order_id']
-        )->fetchRow();
-        $order_id = isset($order[1]) ? $order[1] : 0;
-        if ($order_id) {
-            $pokupki = new YaPokupki();
-            $pokupki->makeData();
-            $status = $pokupki->sendOrder('DELIVERY', $order_id);
-        }
-    }
-
-    public function yaOrderRefund($data)
-    {
-        return $this->yaOrderDel($data);
-    }
-
-    public function yaOrderDel($data)
-    {
-        require_once dirname(__FILE__).'/../api/pokupki.php';
-        $dbm      = new waModel();
-        $order    = $dbm->query(
-            "SELECT * FROM `shop_pokupki_orders` WHERE id_order = ".(int)$data['order_id']
-        )->fetchRow();
-        $order_id = isset($order[1]) ? $order[1] : 0;
-        if ($order_id) {
-            $pokupki = new YaApiPokupki();
-            $pokupki->makeData();
-            $status = $pokupki->sendOrder('CANCELLED', $order_id);
-        }
-    }
-
-    public function yaOrderProcess($data)
-    {
-        require_once dirname(__FILE__).'/../api/pokupki.php';
-        $dbm      = new waModel();
-        $order    = $dbm->query(
-            "SELECT * FROM `shop_pokupki_orders` WHERE id_order = ".(int)$data['order_id']
-        )->fetchRow();
-        $order_id = isset($order[1]) ? $order[1] : 0;
-        if ($order_id) {
-            $pokupki = new YaPokupki();
-            $pokupki->makeData();
-            $status = $pokupki->sendOrder('PROCESSING', $order_id);
-        }
-    }
-
-    public static function log_save($logtext)
-    {
-        $real_log_file = './ya_logs/pokupki_'.date('Y-m-d').'.log';
-        $h             = fopen($real_log_file, 'ab');
-        fwrite($h, date('Y-m-d H:i:s ').'['.addslashes($_SERVER['REMOTE_ADDR']).'] '.$logtext."\n");
-        fclose($h);
-    }
-
-    private function extendItems($order, $items)
-    {
-        $order         = (object)$order;
-        $product_model = new shopProductModel();
-        $discount      = $order->discount;
-        foreach ($items as & $item) {
-            $data             = $product_model->getById($item['product_id']);
-            $item['tax_id']   = ifset($data['tax_id']);
-            $item['currency'] = $order->currency;
-            if (!empty($item['total_discount'])) {
-                $discount      -= $item['total_discount'];
-                $item['total'] -= $item['total_discount'];
-                $item['price'] -= $item['total_discount'] / $item['quantity'];
-            }
-        }
-
-        unset($item);
-
-        $discount_rate = $order->total ? ($order->discount / ($order->total + $order->discount - $order->tax - $order->shipping)) : 0;
-
-        $taxes_params = array(
-            'billing'       => $order->billing_address,
-            'shipping'      => $order->shipping_address,
-            'discount_rate' => $discount_rate,
-        );
-        shopTaxes::apply($items, $taxes_params, $order->currency);
-
-        if ($discount) {
-            $k = 1 - $discount_rate;
-
-            foreach ($items as & $item) {
-                if ($item['tax_included']) {
-                    $item['tax'] = round($k * $item['tax'], 4);
-                }
-
-                $item['price'] = round($k * $item['price'], 4);
-                $item['total'] = round($k * $item['total'], 4);
-            }
-
-            unset($item);
-        }
-
-        return $items;
-    }
-
     public function frontendFoot()
     {
         if ($this->getSettings('ya_metrika_code') && $this->getSettings('ya_metrika_active')) {
@@ -401,7 +294,7 @@ class shopYamodule_apiPlugin extends shopPlugin
         }
     }
 
-    public function frontendSucc()
+    public function frontendSuccess()
     {
         $order_id = wa()->getStorage()->get('shop/order_id');
         if ($this->getSettings('ya_metrika_active') && $order_id) {
@@ -412,34 +305,38 @@ class shopYamodule_apiPlugin extends shopPlugin
             $order_items_model = new shopOrderItemsModel();
             $items             = $order_items_model->getByField('order_id', $order_id, true);
 
-            $html = '<script type="text/javascript">
-            $(document).ready(function(){
-                    var yaParams_'.$order['id'].' = {
-                        order_id: "'.$order['id'].'",
-                        order_price: '.$order['total'].', 
-                        currency: "'.($order['currency'] == 'RUB' ? 'RUR' : $order['currency']).'",
-                        exchange_rate: '.$currency['rate'].',
-                        goods:[';
-            foreach ($items as $item) {
-                $html .= '{id: '.$item['product_id'].', name: "'.$item['name'].'", price: '.$item['price'].', quantity: '.$item['quantity'].'},';
-            }
-            $html .= ']
-                    };
-                    
-                    console.log(yaParams_'.$order['id'].');
-                    metrikaReach("metrikaOrder", yaParams_'.$order['id'].');
-            });
-                    </script>';
+            $currency = $order['currency'] === 'RUB' ? 'RUR' : $order['currency'];
+            $products = implode(',', array_map(function ($item) {
+                return '{id: "'.$item['product_id'].'", name: "'.$item['name'].'", price: '.$item['price'].', quantity: '.$item['quantity'].'}';
+            }, $items));
 
+            $html = <<<HTML
+<script type="text/javascript">
+$(window).on("load", function() {
+    window.dataLayer = window.dataLayer || [];
+    dataLayer.push({
+        ecommerce: {
+            currencyCode: "$currency",
+            purchase: {
+                actionField: {
+                    id: "${order['id']}",
+                },
+                products: [$products],
+            },
+        },
+    });
+});
+</script>
+HTML;
             return $html;
         }
+
+        return '';
     }
 
     /**
      * @param $sm
      * @param $array_fields
-     *
-     * @return mixed
      */
     protected function formValidate($sm, $array_fields)
     {
@@ -697,25 +594,42 @@ class shopYamodule_apiPlugin extends shopPlugin
         $shopData = $sm->get('shop.yamodule_api');
         $shopId = $shopData['ya_kassa_shopid'];
 
-        ob_start(); ?>
+        ob_start();
+        ?>
         <div class="installments-info"></div>
-        <script>
-            const $yamoneyCheckoutCreditUI = YandexCheckoutCreditUI({
-                shopId: <?= $shopId; ?>,
-                sum: "<?= $data['data']['price']; ?>",
-                language: "ru"
-            });
-            $yamoneyCheckoutCreditUI({
-                type: "info",
-                domSelector: ".installments-info"
+        <script type="text/javascript">
+            $(window).on("load", function () {
+                if (typeof YandexCheckoutCreditUI !== 'undefined') {
+                    const $yamoneyCheckoutCreditUI = YandexCheckoutCreditUI({
+                        shopId: <?= $shopId; ?>,
+                        sum: "<?= $data['data']['price']; ?>",
+                        language: "ru"
+                    });
+                    $yamoneyCheckoutCreditUI({
+                        type: "info",
+                        domSelector: ".installments-info"
+                    });
+                }
+                window.dataLayer = window.dataLayer || [];
+                dataLayer.push({
+                    ecommerce: {
+                        detail: {
+                            products: [{
+                                id: "<?= $data['data']['id']; ?>",
+                                name: "<?= $data['data']['name']; ?>",
+                                price: parseFloat("0<?= $data['data']['price'] ?: 0; ?>")
+                            }]
+                        }
+                    }
+                });
             });
         </script>
         <?php
         $html = ob_get_contents();
         ob_end_clean();
 
-        return [
+        return array(
             'cart' => $html
-        ];
+        );
     }
 }
