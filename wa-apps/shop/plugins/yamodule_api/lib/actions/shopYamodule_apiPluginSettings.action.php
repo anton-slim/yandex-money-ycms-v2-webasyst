@@ -26,8 +26,6 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
                 $sm = new waAppSettingsModel();
                 if ($type == 'm') {
                     $sm->set('shop.yamodule_api', 'ya_metrika_token', $data->access_token);
-                } elseif ($type == 'p') {
-                    $sm->set('shop.yamodule_api', 'ya_pokupki_token', $data->access_token);
                 }
             }
 
@@ -51,21 +49,12 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
                         'code'
                     ).'&client_id='.$settings['ya_metrika_appid'].'&client_secret='.$settings['ya_metrika_pwapp']
                 );
-            } else {
-                $this->gocurl(
-                    'p',
-                    'grant_type=authorization_code&code='.waRequest::request(
-                        'code'
-                    ).'&client_id='.$settings['ya_pokupki_appid'].'&client_secret='.$settings['ya_pokupki_pwapp']
-                );
             }
 
             header('Location: ' . wa()->getRootUrl(true).'webasyst/shop/?action=plugins#/yamodule_api/');
             exit();
         }
 
-        $settings['ya_pokupki_carrier']   = unserialize($settings['ya_pokupki_carrier']);
-        $settings['ya_pokupki_rate']      = unserialize($settings['ya_pokupki_rate']);
         $settings['ya_market_categories'] = unserialize($settings['ya_market_categories']);
         $plugin_model                     = new shopPluginModel();
         $methods                          = $plugin_model->listPlugins('shipping');
@@ -77,7 +66,6 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
                 unset($currencies[$k]);
             }
         }
-        $ya_features = array();
         $ff          = new shopFeatureModel();
         $ya_features = $ff->getAll();
 
@@ -102,7 +90,6 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $this->view->assign('ya_kassa_fail', $this->getRelayUrl().'?result=fail');
         $this->view->assign('ya_kassa_success', $this->getRelayUrl().'?result=success');
         $this->view->assign('ya_p2p_callback', $this->getRelayUrl(true));
-        $this->view->assign('ya_pokupki_callback', $root . 'payments.php/yamodulepay_api/?action=callback&genToken=1');
         $this->view->assign('ya_metrika_callback', $root . 'payments.php/yamodulepay_api/?action=callback&genToken=1');
         $this->view->assign(
             'ya_market_yml',
@@ -110,14 +97,6 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
                 'http://',
                 'https://',
                 wa()->getRouteUrl('shop/frontend', array('module' => 'yamodule_api', 'action' => 'market'), true)
-            )
-        );
-        $this->view->assign(
-            'ya_pokupki_link',
-            str_replace(
-                'http://',
-                'https://',
-                wa()->getRouteUrl('shop/frontend', array(), true).'yamodule_api/pokupki'
             )
         );
         $this->view->assign('ya_currencies', $currencies);

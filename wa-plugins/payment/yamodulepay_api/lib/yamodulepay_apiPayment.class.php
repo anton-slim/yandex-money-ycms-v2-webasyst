@@ -56,7 +56,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const INSTALLMENTS_MIN_AMOUNT = 3000;
 
 
-    private $version = '1.0.11';
+    private $version = '1.0.12';
     private $order_id;
     private $request;
 
@@ -263,7 +263,8 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
 
         if (isset($request['action']) && $request['action'] == 'callback') {
             if (!empty($request['genToken'])) {
-                (new shopYamodule_apiPluginSettingsAction())->execute();
+                $action = new shopYamodule_apiPluginSettingsAction();
+                $action->execute();
                 exit();
             }
 

@@ -1,19 +1,10 @@
-$(document).ready(function(){
-	// alert(12);
-	$form = $('#cart-form, .purchase.addtocart');
-	$form.submit(function(){
-		var f = $(this);
-		$.post('/shop/metrika/cart/info', f.serialize(), function (response) {
-			if (response)
-				metrikaReach('metrikaCart', response);
-		});
-	});
+$(document).ready(function () {
+    $('#cart-form, .purchase.addtocart').submit(function () {
+        $.post('/shop/metrika/cart/addInfo', $(this).serialize(), function (response) {
+            if (response) {
+                window.dataLayer = window.dataLayer || [];
+                dataLayer.push({ecommerce: {add: {products: [JSON.parse(response)]}}});
+            }
+        });
+    });
 });
-
-function metrikaReach(goal_name, params) {
-	for (var i in window) {
-		if (/^yaCounter\d+/.test(i)) {
-			window[i].reachGoal(goal_name, params);
-		}
-	}
-}
