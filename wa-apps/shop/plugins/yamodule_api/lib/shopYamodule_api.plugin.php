@@ -195,7 +195,6 @@ class shopYamodule_apiPlugin extends shopPlugin
             'ya_kassa_shopid'     => _w('Не заполнен shopId'),
             'ya_kassa_pw'         => _w('Не заполнен Секретный ключ'),
             'ya_p2p_number'       => _w('Не заполнен номер кошелька'),
-            'ya_p2p_appid'        => _w('Не заполнен id приложения'),
             'ya_p2p_skey'         => _w('Не заполнен секретный ключ'),
             'ya_metrika_number'   => _w('Не заполнен номер счётчика'),
             'ya_metrika_appid'    => _w('Не заполнен id приложения'),

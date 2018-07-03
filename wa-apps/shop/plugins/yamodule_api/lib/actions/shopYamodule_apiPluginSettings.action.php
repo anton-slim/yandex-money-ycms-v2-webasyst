@@ -89,7 +89,11 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $this->view->assign('ya_kassa_callback', $this->getRelayUrl(true).'?action=callback');
         $this->view->assign('ya_kassa_fail', $this->getRelayUrl().'?result=fail');
         $this->view->assign('ya_kassa_success', $this->getRelayUrl().'?result=success');
-        $this->view->assign('ya_p2p_callback', $this->getRelayUrl(true));
+        $this->view->assign('ya_p2p_callback', $this->getRelayUrl(true).'?action=callbackwallet');
+        $this->view->assign(
+            'ya_wallet_status',
+            empty($settings['ya_wallet_status']) ? 'created' : $settings['ya_wallet_status']
+        );
         $this->view->assign('ya_metrika_callback', $root . 'payments.php/yamodulepay_api/?action=callback&genToken=1');
         $this->view->assign(
             'ya_market_yml',
@@ -129,6 +133,7 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $workflow = new shopWorkflow();
         $states   = $workflow->getAllStates();
         $this->view->assign('ya_billing_statuses', $states);
+        $this->view->assign('ya_wallet_statuses', $states);
 
         $this->view->assign($settings);
 
