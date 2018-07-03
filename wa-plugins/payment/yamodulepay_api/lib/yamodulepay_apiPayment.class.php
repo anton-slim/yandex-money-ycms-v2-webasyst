@@ -56,7 +56,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const INSTALLMENTS_MIN_AMOUNT = 3000;
 
 
-    private $version = '1.0.12';
+    private $version = '1.0.13';
     private $order_id;
     private $request;
 
@@ -189,7 +189,17 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
             }
         }
         if ((bool)$data['ya_p2p_active']) {
-            $view->assign('form_url', $this->getRelayUrl());
+            $transactionModel = new waTransactionModel();
+            $transactionData  = $this->getTransactionByOrder($transactionModel, $order_data);
+            $this->changeOrderState($order_data, self::ORDER_STATE_COMPLETE);
+            $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_SUCCESS, $transactionData);
+            $view->assign('receiver', $data['ya_p2p_number']);
+            $view->assign('orderId', $order_data['id']);
+            $view->assign('targets', 'Оплата заказа '.$order_data->data['id_str']);
+            $view->assign('amount', number_format($order_data['total'], 2, '.', ''));
+            $view->assign('successURL', $redirect);
+
+            return $view->fetch($this->path.'/templates/wallet_payment.html');
         }
         if ((bool)$data['ya_billing_active']) {
             $this->assignBillingVariables($order_data, $data, $yclass, $view);
@@ -200,27 +210,6 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $view->assign('auto_submit', false);
 
         return $view->fetch($this->path.'/templates/payment.html');
-    }
-
-    protected function callbackInit($request)
-    {
-
-        if (!empty($_POST['orderNumber']) && isset($_POST['action']) && $_POST['action'] == 'paymentAviso') {
-            $match             = explode('/', $_POST['orderNumber']);
-            $this->app_id      = $match[0];
-            $this->merchant_id = $match[1];
-            $this->order_id    = $match[2];
-        }
-
-        $doit = waRequest::get('doit');
-        $id   = waRequest::get('id_order');
-        if (($doit == 'wallet' || $doit == 'card') && isset($_SESSION['order_data'][$id])) {
-            $this->order_id    = $id;
-            $this->app_id      = $_SESSION['order_data'][$id][0];
-            $this->merchant_id = $_SESSION['order_data'][$id][1];
-        }
-
-        return parent::callbackInit($request);
     }
 
     public static function log_save($logtext)
@@ -246,16 +235,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         require_once $shopPath.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR.'model'.DIRECTORY_SEPARATOR.'shopOrderParams.model.php';
         require_once $shopPath.DIRECTORY_SEPARATOR.'lib'.DIRECTORY_SEPARATOR.'workflow'.DIRECTORY_SEPARATOR.'shopWorkflow.class.php';
 
-        $order_model = new shopOrderModel();
-        $order       = $order_model->getById(
-            $this->order_id ? $this->order_id : wa()->getStorage()->get('shop/order_id')
-        );
-        $action      = waRequest::post('action');
-        $doit        = waRequest::get('doit');
-        $app_m       = new waAppSettingsModel();
-        $settings    = $app_m->get('shop.yamodule_api');
-        $yclass      = new YandexMoney();
-        $data        = $app_m->get('shop.yamodule_api');
+        $app_m    = new waAppSettingsModel();
+        $settings = $app_m->get('shop.yamodule_api');
+        $yclass   = new YandexMoney();
+        $data     = $app_m->get('shop.yamodule_api');
 
         if (isset($request['action']) && $request['action'] == 'return') {
             $this->processReturnUrl($settings);
@@ -295,44 +278,44 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 if (json_last_error() === JSON_ERROR_NONE) {
                     $message = 'empty object in body';
                 } else {
-                    $message = 'invalid object in body: ' . $source;
+                    $message = 'invalid object in body: '.$source;
                 }
-                $this->debugLog('warning: Invalid parameters in capture notification controller - ' . $message);
+                $this->debugLog('warning: Invalid parameters in capture notification controller - '.$message);
                 header('HTTP/1.1 400 Invalid json object in body');
                 exit();
             }
 
-            $this->debugLog('info: Notification: ' . $source);
+            $this->debugLog('info: Notification: '.$source);
 
             try {
                 $notificationModel = ($callbackParams['event'] === YandexCheckout\Model\NotificationEventType::PAYMENT_SUCCEEDED)
                     ? new NotificationSucceeded($callbackParams)
                     : new NotificationWaitingForCapture($callbackParams);
             } catch (\Exception $e) {
-                $this->debugLog('error: Invalid notification object - ' . $e->getMessage());
+                $this->debugLog('error: Invalid notification object - '.$e->getMessage());
                 header('HTTP/1.1 400 Invalid object in body');
                 exit();
             }
-            $paymentResponse = $notificationModel->getObject();
-            $transaction = $this->getTransactionByPaymentId($paymentResponse->id);
+            $paymentResponse  = $notificationModel->getObject();
+            $transaction      = $this->getTransactionByPaymentId($paymentResponse->id);
             $transactionModel = new waTransactionModel();
-            $orderModel = new shopOrderModel();
-            $order = $orderModel->getOrder($transaction['order_id']);
+            $orderModel       = new shopOrderModel();
+            $order            = $orderModel->getOrder($transaction['order_id']);
             if (!$order) {
                 header("HTTP/1.1 404 Not Found");
                 header("Status: 404 Not Found");
-                $this->debugLog('error: Order empty ' . $transaction['order_id'] . ' заказа ' . json_encode($order));
+                $this->debugLog('error: Order empty '.$transaction['order_id'].' заказа '.json_encode($order));
                 exit();
             }
-            $this->debugLog('info: Проведение платежа ' . $notificationModel->getObject()->getId()
-                . ' заказа ' . json_encode($order));
+            $this->debugLog('info: Проведение платежа '.$notificationModel->getObject()->getId()
+                            .' заказа '.json_encode($order));
 
-            $shopId = $settings['ya_kassa_shopid'];
-            $shopPassword = $settings['ya_kassa_pw'];
-            $apiClient = $this->getApiClient($shopId, $shopPassword);
+            $shopId          = $settings['ya_kassa_shopid'];
+            $shopPassword    = $settings['ya_kassa_pw'];
+            $apiClient       = $this->getApiClient($shopId, $shopPassword);
             $paymentResponse = $apiClient->getPaymentInfo($paymentResponse->getId());
 
-            $this->debugLog('debug: $paymentInfoResponse ' . json_encode($paymentResponse));
+            $this->debugLog('debug: $paymentInfoResponse '.json_encode($paymentResponse));
 
             switch ($paymentResponse->getStatus()) {
                 case PaymentStatus::WAITING_FOR_CAPTURE:
@@ -345,19 +328,19 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                         $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CAPTURED));
                         if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
                             $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
-                            $this->debugLog('Payment completed. Payment id: ' . $paymentResponse->getId());
+                            $this->debugLog('Payment completed. Payment id: '.$paymentResponse->getId());
                         } else {
-                            $this->debugLog('Complete payment fail. Payment id: ' . $paymentResponse->getId());
+                            $this->debugLog('Complete payment fail. Payment id: '.$paymentResponse->getId());
                         }
                     } else {
                         $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CANCELED));
-                        $this->debugLog('Payment canceled. payment id: ' . $paymentResponse->getId());
+                        $this->debugLog('Payment canceled. payment id: '.$paymentResponse->getId());
                     }
                     header("HTTP/1.1 200 OK");
                     header("Status: 200 OK");
                     break;
                 case PaymentStatus::PENDING:
-                    $this->debugLog('Pending payment. payment id: ' . $paymentResponse->getId());
+                    $this->debugLog('Pending payment. payment id: '.$paymentResponse->getId());
                     header("HTTP/1.1 402 Payment Required");
                     header("Status: 402 Payment Required");
                     break;
@@ -366,16 +349,16 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                     $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CAPTURED));
                     if ($this->changeOrderState($order, self::ORDER_STATE_COMPLETE)) {
                         $this->addOrderLog($order, self::ORDER_STATE_COMPLETE, $text);
-                        $this->debugLog('Payment completed. Payment id: ' . $paymentResponse->getId());
+                        $this->debugLog('Payment completed. Payment id: '.$paymentResponse->getId());
                     } else {
-                        $this->debugLog('Complete payment fail. Payment id: ' . $paymentResponse->getId());
+                        $this->debugLog('Complete payment fail. Payment id: '.$paymentResponse->getId());
                     }
                     header("HTTP/1.1 200 OK");
                     header("Status: 200 OK");
                     break;
                 case PaymentStatus::CANCELED:
                     $transactionModel->updateById($transaction['id'], array('state' => self::STATE_CANCELED));
-                    $this->debugLog('Payment canceled. payment id: ' . $paymentResponse->getId());
+                    $this->debugLog('Payment canceled. payment id: '.$paymentResponse->getId());
 
                     header("HTTP/1.1 200 OK");
                     header("Status: 200 OK");
@@ -409,257 +392,30 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 return array(
                     'redirect' => $red,
                 );
+            }
+        }
+
+
+        if (isset($request['action']) && $request['action'] == 'callbackwallet') {
+            $this->debugLog('p2p callback init: params = '.json_encode($_POST));
+            if ($this->checkSignature($settings) && !empty($_POST['label'])) {
+                try {
+                    $orderId    = $_POST['label'];
+                    $orderModel = new shopOrderModel();
+                    $order      = $orderModel->getOrder($orderId);
+                    $status     = $settings['ya_wallet_status'];
+                    $text       = 'Payment completed';
+
+                    if ($this->changeOrderState($order, $status)) {
+                        $this->addOrderLog($order, $status, $text);
+                    } else {
+                        $this->debugLog('Complete payment fail. P2p payment for order No. '.$orderId);
+                    }
+                } catch (Exception $e) {
+                    $this->debugLog('p2p callback error: '.$e->getMessage());
+                }
             } else {
-                if (isset($_POST['action']) && $_POST['action'] == 'checkOrder') {
-                    if ($data['ya_kassa_log']) {
-                        $this->log_save('callback:  checkOrder');
-                    }
-                    $code = $yclass->checkOrder($_POST);
-                    $yclass->sendCode($_POST, $code);
-                }
-
-                if (isset($_POST['action']) && $_POST['action'] == 'paymentAviso') {
-                    if ($this->order_id > 0) {
-                        if ($data['ya_kassa_log']) {
-                            $this->log_save('Payment by kassa for order '.$this->order_id.' success');
-                        }
-                        $_SESSION['order_data']          = array();
-                        $transaction_data['merchant_id'] = $this->merchant_id;
-                        $transaction_data['order_id']    = $this->order_id;
-                        $transaction_data['currency_id'] = 1;
-                        $transaction_data['type']        = self::OPERATION_CAPTURE;
-                        $transaction_data['state']       = self::STATE_CAPTURED;
-                        $transaction_data['plugin']      = 'yandex_p2p_card';
-                        $transaction_data['amount']      = $order['total'];
-                        if ($data['ya_kassa_log']) {
-                            $this->log_save('callback:  Aviso');
-                            $this->log_save('order_id '.$this->order_id);
-                        }
-
-                        $result = $this->execAppCallback(self::CALLBACK_PAYMENT, $transaction_data);
-                        $yclass->checkOrder($_POST, true, true);
-                    }
-                }
-            }
-        }
-
-        if ($action == 'p2p') {
-            $payment_type = waRequest::post('payment-type');
-            if ($payment_type == 'wallet') {
-                $scope    = array(
-                    "payment.to-account(\"".$data['ya_p2p_number']."\",\"account\").limit(,".number_format(
-                        $order['total'],
-                        2,
-                        '.',
-                        ''
-                    ).")",
-                    "money-source(\"wallet\",\"card\")",
-                );
-                $auth_url = $yclass->buildObtainTokenUrl(
-                    $data['ya_p2p_appid'],
-                    $this->getRelayUrl().'wallet?id_order='.$order['id'],
-                    $scope
-                );
-                if ($data['ya_p2p_log']) {
-                    $this->log_save('Redirect to '.$auth_url);
-                }
-                wa()->getResponse()->redirect($auth_url);
-            }
-
-            if ($payment_type == 'card') {
-                $instance = $yclass->sendRequest('/api/instance-id', array('client_id' => $data['ya_p2p_appid']));
-                if ($instance->status == 'success') {
-                    $instance_id = $instance->instance_id;
-                    $message     = 'payment to order #'.$_SESSION['shop/order_id'];
-                    if ($data['ya_p2p_log']) {
-                        $this->log_save('payment by card to order #'.$_SESSION['shop/order_id']);
-                    }
-                    $payment_options = array(
-                        'pattern_id'  => 'p2p',
-                        'to'          => $data['ya_p2p_number'],
-                        'amount_due'  => number_format($order['total'], 2, '.', ''),
-                        'comment'     => trim($message),
-                        'message'     => trim($message),
-                        'instance_id' => $instance_id,
-                        'label'       => $_SESSION['shop/order_id'],
-                    );
-
-                    $response = $yclass->sendRequest('/api/request-external-payment', $payment_options);
-                    if ($response->status == 'success') {
-                        $this->error                       = false;
-                        $request_id                        = $response->request_id;
-                        $_SESSION['ya_encrypt_CRequestId'] = urlencode(base64_encode($request_id));
-
-                        do {
-                            $process_options = array(
-                                "request_id"           => $request_id,
-                                'instance_id'          => $instance_id,
-                                'ext_auth_success_uri' => $this->getRelayUrl().'card?id_order='.$order['id'],
-                                'ext_auth_fail_uri'    => wa()->getRouteUrl(
-                                    'shop/frontend/checkout',
-                                    array('step' => 'error'),
-                                    true
-                                ),
-                            );
-                            $result          = $yclass->sendRequest('/api/process-external-payment', $process_options);
-                            if ($result->status == "in_progress") {
-                                if ($data['ya_p2p_log']) {
-                                    $this->log_save('Payment card in progress');
-                                }
-                                sleep(1);
-                            }
-                        } while ($result->status == "in_progress");
-
-                        if ($result->status == 'success') {
-                            if ($data['ya_p2p_log']) {
-                                $this->log_save('Payment by card success');
-                            }
-                            die('success');
-                            wa()->getResponse()->redirect($this->getAdapter()->getBackUrl(waAppPayment::URL_SUCCESS));
-                        } elseif ($result->status == 'ext_auth_required') {
-                            $_SESSION['cps_context_id'] = $result->acs_params->cps_context_id;
-                            $url                        = sprintf(
-                                "%s?%s",
-                                $result->acs_uri,
-                                http_build_query($result->acs_params)
-                            );
-                            if ($data['ya_p2p_log']) {
-                                $this->log_save('Redirect to (card) '.$url);
-                            }
-                            wa()->getResponse()->redirect($url);
-                            exit;
-                        } elseif ($result->status == 'refused') {
-                            if ($data['ya_p2p_log']) {
-                                $this->log_save('Refused '.$result->error);
-                            }
-                            die(
-                            $yclass->descriptionError($result->error) ? $yclass->descriptionError(
-                                $result->error
-                            ) : $result->error
-                            );
-                        }
-                    }
-                }
-            }
-        }
-
-        if ($doit == 'card') {
-            if ($_SESSION['cps_context_id'] == waRequest::get('cps_context_id')) {
-                if ($data['ya_p2p_log']) {
-                    $this->log_save('Payment by card for order '.$this->order_id.' success');
-                }
-                $_SESSION['cps_context_id']      = '';
-                $transaction_data['merchant_id'] = $this->merchant_id;
-                $transaction_data['order_id']    = $this->order_id;
-                $transaction_data['type']        = self::OPERATION_CAPTURE;
-                $transaction_data['state']       = self::STATE_CAPTURED;
-                $transaction_data['currency_id'] = 1;
-                $transaction_data['plugin']      = 'yandex_p2p_card';
-                $transaction_data['amount']      = $order['total'];
-                $result                          = $this->execAppCallback(self::CALLBACK_PAYMENT, $transaction_data);
-                wa()->getResponse()->redirect(
-                    wa()->getRouteUrl(
-                        'shop/frontend/checkout',
-                        array('step' => 'success'),
-                        true
-                    ).'?order_id='.$this->order_id
-                );
-            }
-        }
-
-        if ($doit == 'wallet') {
-            $code = waRequest::get('code');
-            if (empty($code)) {
-                if ($data['ya_p2p_log']) {
-                    $this->log_save('Empty code');
-                }
-                wa()->getResponse()->redirect(
-                    wa()->getRouteUrl('shop/frontend/checkout', array('step' => 'error'), true)
-                );
-            } else {
-                $response = $yclass->getAccessToken(
-                    $data['ya_p2p_appid'],
-                    $code,
-                    $this->getRelayUrl().'wallet',
-                    $data['ya_p2p_skey']
-                );
-                $token    = '';
-                if (isset($response->access_token)) {
-                    $token = $response->access_token;
-                } else {
-                    if ($data['ya_p2p_log']) {
-                        $this->log_save('Error '.$response->error);
-                    }
-                    wa()->getResponse()->redirect(
-                        wa()->getRouteUrl('shop/frontend/checkout', array('step' => 'error'), true)
-                    );
-                }
-
-                if (!empty($token)) {
-                    $message = 'payment to order #'.$_SESSION['shop/order_id'];
-                    if ($data['ya_p2p_log']) {
-                        $this->log_save('payment to order #'.$_SESSION['shop/order_id']);
-                    }
-                    $rarray = array(
-                        'pattern_id' => 'p2p',
-                        'to'         => $data['ya_p2p_number'],
-                        'amount_due' => number_format($order['total'], 2, '.', ''),
-                        'comment'    => trim($message),
-                        'message'    => trim($message),
-                        'label'      => $_SESSION['shop/order_id'],
-                    );
-
-                    $request_payment = $yclass->sendRequest('/api/request-payment', $rarray, $token);
-                    switch ($request_payment->status) {
-                        case 'success':
-                            $_SESSION['ya_encrypt_token']     = urlencode(base64_encode($token));
-                            $_SESSION['ya_encrypt_RequestId'] = urlencode(base64_encode($request_payment->request_id));
-
-                            do {
-                                $array_p         = array("request_id" => $request_payment->request_id);
-                                $process_payment = $yclass->sendRequest("/api/process-payment", $array_p, $token);
-
-                                if ($process_payment->status == "in_progress") {
-                                    sleep(1);
-                                }
-                            } while ($process_payment->status == "in_progress");
-
-                            if ($process_payment->status == 'success') {
-                                if ($data['ya_p2p_log']) {
-                                    $this->log_save('Payment p2p wallet for order '.$this->order_id.' success');
-                                }
-                                $_SESSION['ya_encrypt_token']     = '';
-                                $_SESSION['ya_encrypt_RequestId'] = '';
-                                $transaction_data['merchant_id']  = $this->merchant_id;
-                                $transaction_data['order_id']     = $this->order_id;
-                                $transaction_data['type']         = self::OPERATION_CAPTURE;
-                                $transaction_data['state']        = self::STATE_CAPTURED;
-                                $transaction_data['currency_id']  = 1;
-                                $transaction_data['plugin']       = 'yandex_p2p_wallet';
-                                $transaction_data['amount']       = $order['total'];
-                                $result                           = $this->execAppCallback(
-                                    self::CALLBACK_PAYMENT,
-                                    $transaction_data
-                                );
-                                wa()->getResponse()->redirect(
-                                    wa()->getRouteUrl(
-                                        'shop/frontend/checkout',
-                                        array('step' => 'success'),
-                                        true
-                                    ).'?order_id='.$this->order_id
-                                );
-                            }
-                            break;
-                        case 'refused':
-                            if ($data['ya_p2p_log']) {
-                                $this->log_save($request_payment->error.' : '.$request_payment->error_description);
-                            }
-                            wa()->getResponse()->redirect(
-                                wa()->getRouteUrl('shop/frontend/checkout', array('step' => 'error'), true)
-                            );
-                            break;
-                    }
-                }
+                $this->debugLog('p2p callback error: params = '.json_encode($_POST));
             }
         }
     }
@@ -777,7 +533,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
 
     private function createPayment($orderData, $paymentFormData, $data)
     {
-        $paymentType = isset($paymentFormData['paymentType']) ? $paymentFormData['paymentType'] : null;
+        $paymentType   = isset($paymentFormData['paymentType']) ? $paymentFormData['paymentType'] : null;
         $paymentMethod = $this->getPaymentMethod($paymentType);
         $order         = waOrder::factory($orderData);
         $shopId        = $data['ya_kassa_shopid'];
@@ -864,7 +620,8 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
             }
 
             if ($orderData['shipping'] > 0) {
-                $builder->addReceiptShipping($orderData['shipping_name'], $orderData['shipping'], self::DEFAULT_TAX_RATE);
+                $builder->addReceiptShipping($orderData['shipping_name'], $orderData['shipping'],
+                    self::DEFAULT_TAX_RATE);
             }
         }
         try {
@@ -879,32 +636,14 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
             return null;
         }
 
-
         $serializer     = new CreatePaymentRequestSerializer();
         $serializedData = $serializer->serialize($paymentRequest);
-        if (isset($data['ya_kassa_send_check']) && $data['ya_kassa_send_check']) {
-            $config   = waConfig::getAll();
-            $appsPath = $config['wa_path_apps'];
-            require_once $appsPath.DIRECTORY_SEPARATOR.'shop'.DIRECTORY_SEPARATOR.'plugins'.DIRECTORY_SEPARATOR.'yamodule_api'.DIRECTORY_SEPARATOR.'api'.DIRECTORY_SEPARATOR.'orderReceiptModel.php';
 
-
-            $orderReceiptModel = new orderReceiptModel();
-            $receiptData       = $serializedData['receipt'];
-            if ($receiptData) {
-                $result = $orderReceiptModel->add(
-                    array(
-                        'order_id' => (int)$order['id'],
-                        'receipt'  => json_encode($receiptData, JSON_UNESCAPED_UNICODE),
-                    )
-                );
-            }
-        }
         $this->debugLog('Create payment request: '.json_encode($serializedData));
         $this->debugLog('Return url: '.$returnUrl);
-        $idempotencyKey = base64_encode($orderData->data['id_str'].str_replace('.', '-', microtime(true)));
-        $this->debugLog('Idempotency Key: '.$idempotencyKey);
+
         try {
-            $response = $apiClient->createPayment($paymentRequest, $idempotencyKey);
+            $response = $apiClient->createPayment($paymentRequest);
 
             return $response;
         } catch (ApiException $e) {
@@ -915,14 +654,14 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     private function getPaymentMethod($paymentType)
     {
         $paymentMethodsMap = array(
-            'PC' => PaymentMethodType::YANDEX_MONEY,
-            'AC' => PaymentMethodType::BANK_CARD,
-            'GP' => PaymentMethodType::CASH,
-            'MC' => PaymentMethodType::MOBILE_BALANCE,
-            'WM' => PaymentMethodType::WEBMONEY,
-            'SB' => PaymentMethodType::SBERBANK,
-            'AB' => PaymentMethodType::ALFABANK,
-            'QW' => PaymentMethodType::QIWI,
+            'PC'           => PaymentMethodType::YANDEX_MONEY,
+            'AC'           => PaymentMethodType::BANK_CARD,
+            'GP'           => PaymentMethodType::CASH,
+            'MC'           => PaymentMethodType::MOBILE_BALANCE,
+            'WM'           => PaymentMethodType::WEBMONEY,
+            'SB'           => PaymentMethodType::SBERBANK,
+            'AB'           => PaymentMethodType::ALFABANK,
+            'QW'           => PaymentMethodType::QIWI,
             'installments' => PaymentMethodType::INSTALLMENTS,
         );
 
@@ -981,7 +720,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
      */
     protected function getTransactionByOrder($transactionModel, $order)
     {
-        $transactions = $transactionModel->getByFields(array('order_id' => $order['id']));
+        $transactions    = $transactionModel->getByFields(array('order_id' => $order['id']));
         $transactionData = null;
         if ($transactions) {
             $transactionData = array_shift($transactions);
@@ -1059,7 +798,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                 wa()->getResponse()->redirect($redirect);
             } elseif (($result->status == PaymentStatus::PENDING) && $result->getPaid()) {
                 $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_SUCCESS, $transactionData);
-                $this->debugLog('Payment pending and paid. Redirect: ' . $redirect);
+                $this->debugLog('Payment pending and paid. Redirect: '.$redirect);
                 wa()->getResponse()->redirect($redirect);
             } else {
                 $redirect = $this->getAdapter()->getBackUrl(waAppPayment::URL_FAIL, $transactionData);
@@ -1142,6 +881,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     /**
      * @param ArrayAccess $order
      * @param $settings
+     *
      * @return bool|string
      */
     private function createDescription($order, $settings)
@@ -1165,5 +905,42 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $description = strtr($descriptionTemplate, $replace);
 
         return (string)mb_substr($description, 0, Payment::MAX_LENGTH_DESCRIPTION);
+    }
+
+    private function checkSignature($settings)
+    {
+        if (empty($_POST['sha1_hash'])) {
+            return false;
+        } else {
+            $shaHash = $_POST['sha1_hash'];
+        }
+
+        $notificationSecret = $settings['ya_p2p_skey'];
+
+        $notificationType = isset($_POST['notification_type']) ? $_POST['notification_type'] : '';
+        $operationId      = isset($_POST['operation_id']) ? $_POST['operation_id'] : '';
+        $amount           = isset($_POST['amount']) ? $_POST['amount'] : '';
+        $currency         = isset($_POST['currency']) ? $_POST['currency'] : '';
+        $datetime         = isset($_POST['datetime']) ? $_POST['datetime'] : '';
+        $sender           = isset($_POST['sender']) ? $_POST['sender'] : '';
+        $codepro          = isset($_POST['codepro']) ? $_POST['codepro'] : '';
+        $label            = isset($_POST['label']) ? $_POST['label'] : '';
+
+        $data = array(
+            $notificationType,
+            $operationId,
+            $amount,
+            $currency,
+            $datetime,
+            $sender,
+            $codepro,
+            $notificationSecret,
+            $label,
+        );
+
+        $dataString = implode('&', $data);
+        $signature  = sha1($dataString);
+
+        return $shaHash == $signature;
     }
 }

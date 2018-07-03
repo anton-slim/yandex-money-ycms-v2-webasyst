@@ -58,7 +58,6 @@ $data_db            = array(
     'ya_kassa_test'           => '1',
     'ya_p2p_test'             => '1',
     'ya_p2p_number'           => '',
-    'ya_p2p_appid'            => '',
     'ya_p2p_skey'             => '',
     'ya_p2p_log'              => '1',
     'ya_metrika_active'       => '1',
@@ -98,6 +97,7 @@ $data_db            = array(
     'ya_billing_id'           => '',
     'ya_billing_purpose'      => 'Номер заказа %order_id% Оплата через Яндекс.Платежку',
     'ya_billing_status'       => 'created',
+    'ya_wallet_status'        => 'created',
 );
 
 if ($s) {

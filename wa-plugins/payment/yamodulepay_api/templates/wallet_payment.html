@@ -1,0 +1,25 @@
+<form id="wallet-form" method="POST" action="https://money.yandex.ru/quickpay/confirm.xml">
+    <table class="radio" style="width: 50%;margin: 25px auto;">
+        <tbody>
+        <tr class="highlight">
+            <td><input type="radio" name="paymentType" value="PC" checked="" id="ym1"></td>
+            <td><label for="ym1">[`Яндекс.Деньги`]</label></td>
+        </tr>
+        <tr class="highlight">
+            <td><input type="radio" name="paymentType" value="AC" id="ym2"></td>
+            <td><label for="ym2">[`Банковские карты`]</label></td>
+        </tr>
+        </tbody>
+    </table>
+    <input id="paymentFormSubmit" type="submit" value="[`Оплатить заказ на сайте Яндекс.Денег`]"/>
+    <input type="hidden" name="receiver" value="{$receiver}">
+    <input type="hidden" name="label" value="{$orderId}">
+    <input type="hidden" name="targets" value="{$targets}">
+    <input type="hidden" name="quickpay-form" value="shop">
+    <input type="hidden" name="sum" value="{$amount}" data-type="number">
+    <input type="hidden" name="need-fio" value="false">
+    <input type="hidden" name="need-email" value="false">
+    <input type="hidden" name="need-phone" value="false">
+    <input type="hidden" name="need-address" value="false">
+    <input type="hidden" name="successURL" value="{$successURL}">
+</form>
