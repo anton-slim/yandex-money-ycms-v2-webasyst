@@ -19,7 +19,7 @@ use YandexCheckout\Request\Payments\Payment\CreateCaptureRequest;
  *
  * @author Webasyst
  * @name YandexMoney
- * @description YandexMoney pament module
+ * @description YandexMoney payment module
  * @property-read string $integration_type
  * @property-read string $TESTMODE
  * @property-read string $shopPassword
@@ -32,22 +32,7 @@ use YandexCheckout\Request\Payments\Payment\CreateCaptureRequest;
  */
 class yamodulepay_apiPayment extends waPayment implements waIPayment
 {
-    /** @var int Success */
-    const XML_SUCCESS = 0;
-
-    /** @var int Authorization failed */
-    const XML_AUTH_FAILED = 1;
-
-    /** @var int Payment refused by shop */
-    const XML_PAYMENT_REFUSED = 100;
-
-    /** @var int Bad request */
-    const XML_BAD_REQUEST = 200;
-
-    /** @var int Temporary technical problems */
-    const XML_TEMPORAL_PROBLEMS = 1000;
-
-    const DEFAULT_TAX_RATE = 1;
+    const DEFAULT_VAT_CODE = 1;
 
     const ORDER_STATE_COMPLETE = 'paid';
     const ORDER_STATE_CANCELED = 'canceled';
@@ -56,9 +41,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const INSTALLMENTS_MIN_AMOUNT = 3000;
 
 
-    private $version = '1.0.13';
-    private $order_id;
-    private $request;
+    private $version = '1.0.14';
 
     private $errors;
 
@@ -115,6 +98,13 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         return $items;
     }
 
+    /**
+     * @param $payment_form_data
+     * @param $order_data
+     * @param bool $auto_submit
+     * @return array
+     * @throws Exception
+     */
     public function payment($payment_form_data, $order_data, $auto_submit = false)
     {
         $order_data = waOrder::factory($order_data);
@@ -437,14 +427,10 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $view->assign('alfa', $paymentInfo['ya_kassa_alfa']);
         $view->assign('wm', $paymentInfo['ya_kassa_wm']);
         $view->assign('sber', $paymentInfo['ya_kassa_sber']);
-        $view->assign('sms', $paymentInfo['ya_kassa_sms']);
         $view->assign('terminal', $paymentInfo['ya_kassa_terminal']);
         $view->assign('card', $paymentInfo['ya_kassa_card']);
         $view->assign('wallet', $paymentInfo['ya_kassa_wallet']);
-        $view->assign('pb', $paymentInfo['ya_kassa_pb']);
-        $view->assign('ma', $paymentInfo['ya_kassa_ma']);
         $view->assign('qw', $paymentInfo['ya_kassa_qw']);
-        $view->assign('qp', $paymentInfo['ya_kassa_qp']);
         if ($orderData->total >= self::INSTALLMENTS_MIN_AMOUNT) {
             $view->assign('installments', $paymentInfo['ya_kassa_installments']);
         }
@@ -531,6 +517,13 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         }
     }
 
+    /**
+     * @param $orderData
+     * @param $paymentFormData
+     * @param $data
+     * @return null|\YandexCheckout\Request\Payments\CreatePaymentResponse
+     * @throws Exception
+     */
     private function createPayment($orderData, $paymentFormData, $data)
     {
         $paymentType   = isset($paymentFormData['paymentType']) ? $paymentFormData['paymentType'] : null;
@@ -580,15 +573,20 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
                                          ));
 
         if (isset($data['ya_kassa_send_check']) && $data['ya_kassa_send_check']) {
-            $taxValues   = array();
+            $vatCodes   = array();
             $order_model = new shopOrderModel();
             $order       = $order_model->getById($orderData['order_id']);
             $model       = new waContactEmailsModel();
 
-            if (isset($paymentInfo['taxValues'])) {
-                @$val = unserialize($paymentInfo['taxValues']);
+            $sm = new waAppSettingsModel();
+            $data = $sm->get('shop.yamodule_api');
+            $defaultVatCode = isset($data['ya_kassa_default_vat_code'])
+                ? $data['ya_kassa_default_vat_code']
+                : self::DEFAULT_VAT_CODE;
+            if (isset($data['taxValues'])) {
+                @$val = unserialize($data['taxValues']);
                 if (is_array($val)) {
-                    $taxValues = $val;
+                    $vatCodes = $val;
                 }
             }
 
@@ -612,16 +610,15 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
             foreach ($items as $product) {
                 $taxId = 'ya_kassa_tax_'.$product['tax_id'];
                 $price = $product['price'] + ($product['tax'] / $product['quantity']);
-                if (isset($taxValues[$taxId])) {
-                    $builder->addReceiptItem($product['name'], $price, $product['quantity'], $taxValues[$taxId]);
+                if (isset($vatCodes[$taxId])) {
+                    $builder->addReceiptItem($product['name'], $price, $product['quantity'], $vatCodes[$taxId]);
                 } else {
-                    $builder->addReceiptItem($product['name'], $price, $product['quantity'], self::DEFAULT_TAX_RATE);
+                    $builder->addReceiptItem($product['name'], $price, $product['quantity'], $defaultVatCode);
                 }
             }
 
             if ($orderData['shipping'] > 0) {
-                $builder->addReceiptShipping($orderData['shipping_name'], $orderData['shipping'],
-                    self::DEFAULT_TAX_RATE);
+                $builder->addReceiptShipping($orderData['shipping_name'], $orderData['shipping'], $defaultVatCode);
             }
         }
         try {

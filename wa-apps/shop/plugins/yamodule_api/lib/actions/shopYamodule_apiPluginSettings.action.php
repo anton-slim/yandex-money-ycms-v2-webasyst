@@ -1,5 +1,7 @@
 <?php
 
+require_once dirname(__FILE__).'/../../../../../../wa-plugins/payment/yamodulepay_api/lib/yamodulepay_apiPayment.class.php';
+
 class shopYamodule_apiPluginSettingsAction extends waViewAction
 {
 
@@ -106,17 +108,6 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $this->view->assign('ya_currencies', $currencies);
         $this->view->assign('treeCat', $this->treeCat());
 
-        $this->view->assign('mws_status', '');
-        $this->view->assign('mws_cn', '/business/ss5/yacms-'.$settings['ya_kassa_shopid']);
-        $this->view->assign(
-            'mws_sign',
-            isset($settings['yamodule_mws_csr_sign']) ? $settings['yamodule_mws_csr_sign'] : ''
-        );
-        $this->view->assign(
-            'mws_cert',
-            isset($settings['yamodule_mws_cert']) && ! empty($settings['yamodule_mws_cert']) ? 1 : 0
-        );
-
         $this->view->assign('ya_billing_active', empty($settings['ya_billing_active']) ? false : true);
         $this->view->assign('ya_billing_id', empty($settings['ya_billing_id']) ? '' : $settings['ya_billing_id']);
         $this->view->assign(
@@ -141,6 +132,20 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
             ? $settings['ya_kassa_description_template']
             : 'Оплата заказа №%id%';
         $this->view->assign('ya_kassa_description_template', $ya_kassa_description_template);
+
+        $this->view->assign('ya_kassa_tax_list', array(
+            '1' => 'Без НДС',
+            '2' => '0%',
+            '3' => '10%',
+            '4' => '18%',
+            '5' => 'Расчётная ставка 10/110',
+            '6' => 'Расчётная ставка 18/118',
+        ));
+
+        $ya_kassa_default_vat_code = isset($settings['ya_kassa_default_vat_code'])
+            ? $settings['ya_kassa_default_vat_code']
+            : yamodulepay_apiPayment::DEFAULT_VAT_CODE;
+        $this->view->assign('ya_kassa_default_vat_code', $ya_kassa_default_vat_code);
     }
 
     public final function getRelayUrl($force_https = true)
