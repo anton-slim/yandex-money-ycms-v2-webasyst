@@ -128,11 +128,21 @@
             <label for="ya_kassa_send_check">[`Отключить`]</label><br/>
         </div>
     </div>
-    <div class="tax_settings" style="display: none; padding-left: 200px;">
-        <label>[`Сопоставьте ставки.`]</label>
+    <div class="tax_settings" style="display: none; overflow:hidden; padding-left: 30px;">
+        <div class="field">
+            <label for="ya_kassa_default_vat_code">[`Ставка по умолчанию`]</label><br/>
+            <select name="ya_kassa_default_vat_code" class="fixed-width-xl" id="ya_kassa_default_vat_code">
+                {foreach $ya_kassa_tax_list as $key => $tax_item}
+                    <option {if $ya_kassa_default_vat_code == $key} selected="selected" {/if}
+                        value="{$key}">{$tax_item}</option>
+                {/foreach}
+            </select>
+            <br><span class="help-block">[`Ставка по умолчанию будет в чеке, если в карточке товара не указана другая ставка`]</span>
+        </div>
+        <label>[`Сопоставьте ставки`]</label>
         <div class="field">
             <div class="name">
-                <label for="ya_kassa_tax_">[`Ставка в вашем магазине.`]</label>
+                <span class="help-block">[`Ставка в вашем магазине`]</span>
             </div>
             <div class="value">
                 <span class="help-block">[`Ставка для чека в налоговую`]</span>
@@ -144,19 +154,11 @@
                 <label for="ya_kassa_tax_{$tax['id']}">{$tax['name']}</label>
             </div>
             <div class="value">
-                <select name="ya_kassa_tax_{$tax['id']}" class=" fixed-width-xl" id="ya_kassa_tax_{$tax['id']}">
-                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 1} selected="selected" {/if}
-                    value="1">Без НДС</option>
-                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 2} selected="selected" {/if}
-                    value="2">0%</option>
-                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 3} selected="selected" {/if}
-                    value="3">10%</option>
-                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 4} selected="selected" {/if}
-                    value="4">18%</option>
-                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 5} selected="selected" {/if}
-                    value="5">Расчётная ставка 10/110</option>
-                    <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} && $ya_kassa_tax_{$tax['id']} == 6} selected="selected" {/if}
-                    value="6">Расчётная ставка 18/118</option>
+                <select name="ya_kassa_tax_{$tax['id']}" class="fixed-width-xl" id="ya_kassa_tax_{$tax['id']}">
+                    {foreach $ya_kassa_tax_list as $key => $tax_item}
+                        <option {if isset($ya_kassa_tax_{$tax['id']}) && $ya_kassa_tax_{$tax['id']} == $key} selected="selected" {/if}
+                         value="{$key}">{$tax_item}</option>
+                    {/foreach}
                 </select>
             </div>
         </div>
@@ -164,7 +166,7 @@
     </div>
     <div class="field">
         <div class="name">
-            <label for="">[`Url для нотификаций`]</label>
+            <label>[`Url для нотификаций`]</label>
         </div>
         <div class="value">
             <input type="text" value="{$ya_kassa_callback}" readonly>

@@ -114,9 +114,6 @@ class shopYamodule_apiPlugin extends shopPlugin
                 if (isset($receiptData['email'])) {
                     $builder->setReceiptEmail($receiptData['email']);
                 }
-                if (isset($receiptData['tax_system_code'])) {
-                    $builder->setTaxSystemCode($receiptData['tax_system_code']);
-                }
 
                 foreach ($receiptData['items'] as $item) {
                     $builder->addReceiptItem(

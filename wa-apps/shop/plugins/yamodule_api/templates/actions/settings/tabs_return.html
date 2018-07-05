@@ -259,11 +259,9 @@
                 contentType: false,
                 processData: false,
                 beforeSend: function () {
-                    //$('#mws_crt_load').button('loading');
                     $('#rerrors').empty();
                 },
                 complete: function () {
-                    //$('#mws_crt_load').button('reset');
                 },
                 success: function (json) {
                     if (!json.data.errors) {
