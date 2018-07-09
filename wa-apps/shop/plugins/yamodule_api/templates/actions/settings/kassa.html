@@ -117,6 +117,34 @@
     </div>
     <div class="field">
         <div class="name">
+            <label for="ya_kassa_enable_hold_mode">[`Включить отложенную оплату`]</label>
+        </div>
+        <div class="value">
+            <input id="ya_kassa_enable_hold_mode" name="ya_kassa_enable_hold_mode" type="checkbox" class="input"
+                   value="1" {if $ya_kassa_enable_hold_mode} checked="checked" {/if}>
+            [`Если опция включена, платежи с карт проходят в 2 этапа: у клиента сумма замораживается, и вам вручную нужно подтвердить её списание – через панель администратора. <a href="https://kassa.yandex.ru/features-pre-authorisation.html" target="_blank">Подробное описание Холдирования.</a>`]
+        </div>
+    </div>
+    <div class="hold_mode_settings" style="display: none; overflow:hidden; padding-left: 30px;">
+        <div class="field">
+            <label>[`Какой статус присваивать заказу, если он:`]</label><br/>
+            <div class="name">
+                <label for="ya_kassa_hold_order_status">[`ожидает подтверждения`]</label>
+            </div>
+            <div class="value">
+                <select name="ya_kassa_hold_order_status" id="ya_kassa_hold_order_status" class="fixed-width-xl">
+                    {foreach $ya_kassa_states_list as $key => $item}
+                    <option {if $ya_kassa_hold_order_status == $key} selected="selected" {/if}
+                    value="{$key}">{$item}</option>
+                    {/foreach}
+                </select>
+                <br><span class="help-block">[`заказ переходит в этот статус при поступлении и остается в нем пока оператор магазина не подтвердит или не отменит платеж`]</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="field">
+        <div class="name">
             <label for="ya_kassa_send_check">[`Отправлять в Яндекс.Кассу данные для чеков (54-ФЗ)`]</label>
         </div>
         <div class="value">
@@ -192,19 +220,28 @@
 </form>
 <script>
     function hideTaxes() {
-        var inside = $('input[name="ya_kassa_send_check"]:checked').val();
-
-        if (inside == 1) {
+        if ($('input[name="ya_kassa_send_check"]:checked').val() === "1") {
             $('.tax_settings').slideDown('slow');
         } else {
             $('.tax_settings').slideUp('slow');
         }
     }
+    function toggleHoldSettingsBlock() {
+        if ($('input[name="ya_kassa_enable_hold_mode"]:checked').val() === "1") {
+            $('.hold_mode_settings').slideDown('slow');
+        } else {
+            $('.hold_mode_settings').slideUp('slow');
+        }
+    }
 
     $(document).ready(function () {
         hideTaxes();
+        toggleHoldSettingsBlock();
         $('input[name="ya_kassa_send_check"]').change(function () {
             hideTaxes();
+        });
+        $('input[name="ya_kassa_enable_hold_mode"]').change(function () {
+            toggleHoldSettingsBlock();
         });
     });
 </script>
