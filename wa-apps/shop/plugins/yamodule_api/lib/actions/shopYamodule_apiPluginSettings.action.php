@@ -146,6 +146,17 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
             ? $settings['ya_kassa_default_vat_code']
             : yamodulepay_apiPayment::DEFAULT_VAT_CODE;
         $this->view->assign('ya_kassa_default_vat_code', $ya_kassa_default_vat_code);
+
+        $workflow = new shopWorkflow();
+        $states = $workflow->getAllStates();
+        $states_list = array();
+        foreach($states as $state) {
+            $states_list[$state->getId()] = $state->getName();
+        }
+        $this->view->assign('ya_kassa_states_list', $states_list);
+
+        $ya_kassa_hold_order_status = $this->array_get($settings, 'ya_kassa_hold_order_status', '');
+        $this->view->assign('ya_kassa_hold_order_status', $ya_kassa_hold_order_status);
     }
 
     public final function getRelayUrl($force_https = true)
@@ -227,5 +238,18 @@ class shopYamodule_apiPluginSettingsAction extends waViewAction
         $prefix       = substr($shopPassword, 0, 4);
 
         return $prefix == "test";
+    }
+
+    /**
+     * @param array $settings
+     * @param mixed $value
+     * @param mixed $defaultValue
+     * @return mixed
+     */
+    private function array_get($settings, $value, $defaultValue)
+    {
+        return isset($settings[$value])
+            ? $settings[$value]
+            : $defaultValue;
     }
 }

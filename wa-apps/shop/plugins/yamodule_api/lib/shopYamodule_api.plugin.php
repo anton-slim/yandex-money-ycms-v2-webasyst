@@ -1,6 +1,9 @@
 <?php
+require_once dirname(__FILE__).'/../../../../../wa-plugins/payment/yamodulepay_api/lib/yamodulepay_apiPayment.class.php';
 
 use YandexCheckout\Client;
+use YandexCheckout\Model\PaymentStatus;
+use YandexCheckout\Request\Payments\Payment\CreateCaptureRequest;
 use YandexCheckout\Request\Refunds\CreateRefundRequest;
 use YandexCheckout\Request\Refunds\CreateRefundRequestSerializer;
 
@@ -95,12 +98,11 @@ class shopYamodule_apiPlugin extends shopPlugin
             $orderId            = waRequest::post('id_order');
             $orderReceiptsModel = new orderReceiptModel();
             $order_model        = new shopOrderModel();
-            $transactionModel   = new waTransactionModel();
             $order              = $order_model->getById($orderId);
             $orderReceipt       = $orderReceiptsModel->getByOrderId((int)$order['id']);
             $receipt            = $orderReceipt['receipt'];
             $returnAmount       = waRequest::post('return_sum');
-            $transaction        = $this->getTransactionByOrder($transactionModel, (int)$order['id']);
+            $transaction        = $this->getTransactionByOrder((int)$order['id']);
             $paymentId          = $transaction['native_id'];
             $cause              = waRequest::post('return_cause');
             $builder            = CreateRefundRequest::builder()->setPaymentId($paymentId)
@@ -403,23 +405,156 @@ HTML;
     }
 
     /**
-     * @param $transactionModel
      * @param $orderId
      *
      * @return mixed
      */
-    protected function getTransactionByOrder($transactionModel, $orderId)
+    protected function getTransactionByOrder($orderId)
     {
+        $transactionModel = new waTransactionModel();
         $transactions = $transactionModel->getByFields(array('order_id' => $orderId));
         if ($transactions) {
             $transactionData = array_shift($transactions);
         }
 
         if (isset($transactionData)) {
-            return;
+            return $transactionData;
         }
 
         return null;
+    }
+
+    /**
+     * @param $params
+     * @return void
+     */
+    public function orderActionProcess($params)
+    {
+        $app      = new waAppSettingsModel();
+        $settings = $app->get('shop.yamodule_api');
+        if ($params['before_state_id'] !== $settings['ya_kassa_hold_order_status']) {
+            return;
+        }
+        $order_model      = new shopOrderModel();
+        $order            = $order_model->getOrder($params['order_id']);
+        $waOrder          = waOrder::factory($order);
+        $transaction      = $this->getTransactionByOrder($params['order_id']);
+
+        if (empty($transaction)) {
+            $this->debugLog('Empty transaction on orderActionProcess');
+            return;
+        }
+        if (empty($transaction['native_id'])) {
+            $this->debugLog('Empty transaction.native_id on orderActionProcess');
+            return;
+        }
+
+        $shopId       = $settings['ya_kassa_shopid'];
+        $shopPassword = $settings['ya_kassa_pw'];
+        $apiClient    = $this->getApiClient($shopId, $shopPassword);
+        $payment      = $apiClient->getPaymentInfo($transaction['native_id']);
+        if (empty($payment)) {
+            $this->debugLog('Empty payment on orderActionProcess');
+            return;
+        }
+        if ($payment->getStatus() !== PaymentStatus::WAITING_FOR_CAPTURE) {
+            $this->debugLog('Wrong payments status: '.$payment->getStatus());
+        }
+
+        try {
+            $builder = CreateCaptureRequest::builder();
+            $builder->setAmount($order['total']);
+            yamodulepay_apiPayment::setReceiptIfNeeded($builder, $waOrder);
+
+            $captureRequest = $builder->build();
+            $receipt        = $captureRequest->getReceipt();
+            if ($receipt instanceof \YandexCheckout\Model\Receipt) {
+                $receipt->normalize($captureRequest->getAmount());
+            }
+
+            $payment = $apiClient->capturePayment($captureRequest, $payment->getId());
+            if ($payment->getStatus() === PaymentStatus::SUCCEEDED) {
+                yamodulepay_apiPayment::addOrderLogComment($order['id'], 'Вы подтвердили платёж в Яндекс.Кассе.');
+                return;
+            }
+        } catch (Exception $e) {
+            $this->log('error', 'Failed to capture payment: '.$e->getMessage());
+        }
+        yamodulepay_apiPayment::addOrderLogComment($order['id'], 'Платёж не подтвердился. Попробуйте ещё раз.');
+        yamodulepay_apiPayment::changeOrderState($order, $settings['ya_kassa_hold_order_status']);
+        $this->debugLog('Failed to capture payment');
+    }
+
+    /**
+     * @param $params
+     * @return void
+     */
+    public function orderActionDelete($params)
+    {
+        $app      = new waAppSettingsModel();
+        $settings = $app->get('shop.yamodule_api');
+        if ($params['before_state_id'] !== $settings['ya_kassa_hold_order_status']) {
+            return;
+        }
+        $order_model      = new shopOrderModel();
+        $order            = $order_model->getOrder($params['order_id']);
+        $transaction      = $this->getTransactionByOrder($params['order_id']);
+
+        if (empty($transaction)) {
+            $this->debugLog('Empty transaction on orderActionDelete');
+            return;
+        }
+        if (empty($transaction['native_id'])) {
+            $this->debugLog('Empty transaction.native_id on orderActionDelete');
+            return;
+        }
+
+        $shopId       = $settings['ya_kassa_shopid'];
+        $shopPassword = $settings['ya_kassa_pw'];
+        $apiClient    = $this->getApiClient($shopId, $shopPassword);
+        $payment      = $apiClient->getPaymentInfo($transaction['native_id']);
+        if (empty($payment)) {
+            $this->debugLog('Empty payment on orderActionDelete');
+            return;
+        }
+        if ($payment->getStatus() !== PaymentStatus::WAITING_FOR_CAPTURE) {
+            $this->debugLog('Wrong payments status: '.$payment->getStatus());
+        }
+
+        try {
+            $result = $apiClient->cancelPayment($payment->getId());
+            if ($result === null) {
+                throw new RuntimeException('Failed to capture payment after 3 retries');
+            }
+            if ($payment->getStatus() === PaymentStatus::CANCELED) {
+                yamodulepay_apiPayment::addOrderLogComment($order['id'], 'Вы отменили платёж в Яндекс.Кассе. Деньги вернутся клиенту.');
+                return;
+            }
+        } catch (Exception $e) {
+            $this->log('error', 'Failed to cancel payment: '.$e->getMessage());
+        }
+        yamodulepay_apiPayment::addOrderLogComment($order['id'], 'Платёж не отменился. Попробуйте ещё раз.');
+        yamodulepay_apiPayment::changeOrderState($order, $settings['ya_kassa_hold_order_status']);
+        $this->debugLog('Failed to cancel payment');
+    }
+
+    /**
+     * @param $shopId
+     * @param $shopPassword
+     *
+     * @return Client
+     */
+    private function getApiClient($shopId, $shopPassword)
+    {
+        $apiClient = new Client();
+        $apiClient->setAuth($shopId, $shopPassword);
+        $apiClient->setLogger(
+            function ($level, $message, $context) {
+                $this->debugLog($message);
+            }
+        );
+
+        return $apiClient;
     }
 
     public function kassaOrderReturn()
@@ -435,7 +570,6 @@ HTML;
         $orderId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
         $order_model        = new shopOrderModel();
-        $transactionModel   = new waTransactionModel();
         $orderReceiptsModel = new orderReceiptModel();
         $orderRefundModel   = new orderRefundModel();
         $order              = $order_model->getById($orderId);
@@ -454,7 +588,7 @@ HTML;
             }
         );
 
-        $transaction = $this->getTransactionByOrder($transactionModel, (int)$order['id']);
+        $transaction = $this->getTransactionByOrder((int)$order['id']);
         if ($transaction && isset($transaction['native_id'])) {
             $paymentId = $transaction['native_id'];
 
