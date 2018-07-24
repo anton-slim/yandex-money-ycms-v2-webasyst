@@ -42,7 +42,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const INSTALLMENTS_MIN_AMOUNT = 3000;
 
 
-    private $version = '1.0.15';
+    private $version = '1.0.16';
 
     private $errors;
 
