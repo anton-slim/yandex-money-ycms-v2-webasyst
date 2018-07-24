@@ -24,7 +24,6 @@ $sql_mws = 'CREATE TABLE IF NOT EXISTS `shop_ym_order_refund` (
             )
             ENGINE=InnoDB DEFAULT CHARSET=utf8;';
 $s       = $model->query($sql1);
-$s       = $model->query($sql2);
 $s_mws   = $model->query($sql_mws);
 
 $plugin_id          = array('shop', 'yamodule_api');
