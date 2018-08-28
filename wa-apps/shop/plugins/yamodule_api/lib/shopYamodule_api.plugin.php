@@ -435,6 +435,11 @@ HTML;
         if ($params['before_state_id'] !== $settings['ya_kassa_hold_order_status']) {
             return;
         }
+
+        if($settings['ya_kassa_enable_hold_mode'] !== '1'){
+            return;
+        }
+
         $order_model      = new shopOrderModel();
         $order            = $order_model->getOrder($params['order_id']);
         $waOrder          = waOrder::factory($order);
@@ -597,7 +602,7 @@ HTML;
             } catch (Exception $e) {
                 $this->debugLog($e->getMessage());
             }
-            if ($result) {
+            if (!empty($result) && $result->getStatus() != PaymentStatus::PENDING) {
                 $paymentMethod      = $result->getPaymentMethod();
                 $paymentMethodType  = $paymentMethod->getType();
                 $paymentMethodTitle = $this->settingsPaymentOptions($paymentMethodType);
