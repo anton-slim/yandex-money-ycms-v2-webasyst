@@ -34,6 +34,7 @@ $data_db            = array(
     'ya_kassa_inside'         => '1',
     'ya_kassa_paylogo'        => '1',
     'ya_kassa_installments_button' => '1',
+    'ya_kassa_add_installments_block' => '1',
     'ya_kassa_log'            => '1',
     'ya_kassa_qw'             => '1',
     'ya_kassa_alfa'           => '1',

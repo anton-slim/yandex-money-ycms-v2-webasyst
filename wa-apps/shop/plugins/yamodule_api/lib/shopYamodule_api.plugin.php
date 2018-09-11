@@ -715,7 +715,7 @@ HTML;
     {
         return '
 <style>.installments-info{padding-top: 20px;}</style>
-<script src="https://static.yandex.net/kassa/pay-in-parts/ui/v1"></script>
+<script src="https://static.yandex.net/kassa/pay-in-parts/ui/v1/"></script>
 ';
     }
 
@@ -730,8 +730,8 @@ HTML;
         $shopId = $shopData['ya_kassa_shopid'];
 
         ob_start();
+        echo empty($shopData['ya_kassa_add_installments_block']) ? '' : '<div class="installments-info"></div>';
         ?>
-        <div class="installments-info"></div>
         <script type="text/javascript">
             $(window).on("load", function () {
                 if (typeof YandexCheckoutCreditUI !== 'undefined') {
