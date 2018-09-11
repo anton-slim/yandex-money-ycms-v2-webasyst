@@ -71,6 +71,13 @@
             name="ya_kassa_installments_button" class="input" value="1">
             <label for="ya_kassa_installments_button">[`Добавить кнопку «Заплатить по частям» на страницу оформления заказа`]</label><br/>
         </div>
+        <div class="value">
+            <label style="padding-left: 20px;">
+                <input {if isset($ya_kassa_add_installments_block) && $ya_kassa_add_installments_block} checked="checked" {/if} type="checkbox"
+                name="ya_kassa_add_installments_block" class="input" value="1">
+                [`Добавить блок «Заплатить по частям» в карточки товаров`]
+            </label><br/>
+        </div>
     </div>
     <div class="field kassa_methods">
         <div class="name">
@@ -101,6 +108,11 @@
             <input{if isset($ya_kassa_installments) && $ya_kassa_installments} checked="checked" {/if}
             id="ya_kassa_installments" name="ya_kassa_installments" type="checkbox" class="input" value="1">
             <label for="ya_kassa_installments">[`Заплатить по частям`]</label><br/>
+            <label style="padding-left: 20px;">
+                <input {if isset($ya_kassa_add_installments_block) && $ya_kassa_add_installments_block} checked="checked" {/if} type="checkbox"
+                name="ya_kassa_add_installments_block" class="input" value="1">
+                [`Добавить блок «Заплатить по частям» в карточки товаров`]
+            </label><br/>
         </div>
     </div>
     <div class="field">
@@ -242,6 +254,13 @@
         });
         $('input[name="ya_kassa_enable_hold_mode"]').change(function () {
             toggleHoldSettingsBlock();
+        });
+
+        $('input[name=ya_kassa_add_installments_block]').on('change', function () {
+            var checked = this.checked;
+            $('input[name=ya_kassa_add_installments_block]').each(function() {
+                this.checked = checked;
+            });
         });
     });
 </script>

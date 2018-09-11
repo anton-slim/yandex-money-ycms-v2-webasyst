@@ -42,7 +42,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
     const INSTALLMENTS_MIN_AMOUNT = 3000;
 
 
-    private $version = '1.0.17';
+    private $version = '1.0.18';
 
     private $errors;
 
@@ -411,6 +411,7 @@ class yamodulepay_apiPayment extends waPayment implements waIPayment
         $view->assign('inside', $paymentInfo['ya_kassa_inside']);
         $view->assign('paylogo', $paymentInfo['ya_kassa_paylogo']);
         $view->assign('installments_button', $paymentInfo['ya_kassa_installments_button']);
+        $view->assign('add_installments_block', $paymentInfo['ya_kassa_add_installments_block']);
         $view->assign('alfa', $paymentInfo['ya_kassa_alfa']);
         $view->assign('wm', $paymentInfo['ya_kassa_wm']);
         $view->assign('sber', $paymentInfo['ya_kassa_sber']);
