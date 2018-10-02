@@ -1,0 +1,106 @@
+section#market {
+    line-height: 1.5;
+}
+
+.yandex-money-market-sub-header {
+    font-size: 120%;
+    font-style: italic;
+    margin: 20px 0 10px;
+}
+
+.yandex-money-market-js-editable form {
+    display: inline-block;
+}
+
+.yandex-money-market-js-editable-edit {
+    display: none;
+}
+
+.yandex-money-market-js-editable .yandex-money-market-edit-on-button {
+    position: relative;
+    cursor: pointer;
+    display: none;
+}
+
+.yandex-money-market-js-editable:hover .yandex-money-market-edit-on-button {
+    display: inline-block;
+}
+
+.yandex-money-market-js-editable .edit_finish {
+    cursor: pointer;
+}
+
+.yandex-money-market-currency-disabled {
+    color: silver;
+}
+
+section#market .yandex-money-market-delivery-days-from,
+section#market .yandex-money-market-delivery-days-to {
+    width: 100px !important;
+    min-width: 100px;
+}
+
+.yandex-money-market-first-letter-uppercase:first-letter {
+    text-transform: uppercase;
+}
+
+.yandex-money-market-category-tree-branch {
+    display: block;
+}
+
+.yandex-money-market-hidden-element {
+    display: none;
+}
+
+.yandex-money-market-category-tree-trunk, .yandex-money-market-category-tree-trunk ul {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 20px;
+}
+
+.yandex-money-market-category-tree-trunk input {
+    vertical-align: baseline;
+    margin-right: 4px;
+    line-height: normal;
+}
+
+.yandex-money-market-category-tree-panel-heading-controls {
+    line-height: 2.2em;
+    font-size: 1.1em;
+    color: #00aff0;
+}
+
+.yandex-money-market-category-tree-actions {
+    display: inline-block;
+}
+
+.yandex-money-market-category-tree-panel-heading-controls {
+    display: none;
+    float: right;
+    padding: 5px;
+}
+
+.yandex-money-market-category-tree-actions .twitter-typeahead {
+    padding: 0 0 0 4px;
+}
+
+.yandex-money-market-category-tree-block:hover .yandex-money-market-category-tree-panel-heading-controls {
+    display: inline;
+}
+
+.yandex-money-market-available-options-list::after {
+    content: ',';
+}
+
+.yandex-money-market-available-options-list.last::after {
+    content: '';
+}
+
+.yandex-money-market-additional-condition-template {
+    display: none;
+}
+
+.yandex-money-market-copy-url {
+    margin-left: 5px;
+    cursor: pointer;
+}
