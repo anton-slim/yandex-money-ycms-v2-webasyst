@@ -168,10 +168,44 @@ class shopYamodule_apiPlugin extends shopPlugin
                     $this->debugLog('Refund create failed');
                 }
             } else {
-                $this->debugLog('Refund responce not created');
+                $this->debugLog('Refund response not created');
             }
 
             return array('errors' => array('Не удалось осуществить возврат.'));
+        }
+
+        $arrayParams = array(
+            'yandex_money_market_category_list',
+            'yandex_money_market_currency_enabled',
+            'yandex_money_market_currency_rate',
+            'yandex_money_market_currency_plus',
+            'yandex_money_market_delivery_enabled',
+            'yandex_money_market_delivery_cost',
+            'yandex_money_market_delivery_days_from',
+            'yandex_money_market_delivery_days_to',
+            'yandex_money_market_delivery_order_before',
+            'yandex_money_market_available_enabled',
+            'yandex_money_market_available_available',
+            'yandex_money_market_available_delivery',
+            'yandex_money_market_available_pickup',
+            'yandex_money_market_available_store',
+            'yandex_money_market_vat_enabled',
+            'yandex_money_market_vat',
+            'yandex_money_market_offer_options_export_attributes',
+            'yandex_money_market_additional_condition_enabled',
+            'yandex_money_market_additional_condition_categories',
+            'yandex_money_market_additional_condition_name',
+            'yandex_money_market_additional_condition_tag',
+            'yandex_money_market_additional_condition_type_value',
+            'yandex_money_market_additional_condition_static_value',
+            'yandex_money_market_additional_condition_data_value',
+            'yandex_money_market_additional_condition_for_all_cat',
+            'yandex_money_market_additional_condition_join',
+        );
+        foreach ($arrayParams as $param) {
+            if (!isset($_POST[$param])) {
+                $sm->del('shop.yamodule_api', $param);
+            }
         }
 
         $taxValues = array();
@@ -180,8 +214,8 @@ class shopYamodule_apiPlugin extends shopPlugin
                 $taxValues[$k] = $v;
                 continue;
             }
-            if ($k == 'ya_market_categories') {
-                $v = serialize($v);
+            if (is_array($v)) {
+                $v = json_encode($v);
             }
             $sm->set('shop.yamodule_api', $k, $v);
         }
@@ -200,7 +234,6 @@ class shopYamodule_apiPlugin extends shopPlugin
             'ya_metrika_pwapp'    => _w('Не заполнен пароль приложения'),
             'ya_metrika_token'    => _w('Не заполнен токен. Получите его'),
             'ya_market_name'      => _w('Не заполнено имя магазина'),
-            'ya_market_price'     => _w('Не заполнена цена'),
             'ya_billing_id'       => _w('Не указан ID формы'),
             'ya_billing_purpose'  => _w('Не указано назначение платежа'),
             'ya_billing_status'   => _w('Не указан статус заказа'),
@@ -553,9 +586,10 @@ HTML;
     {
         $apiClient = new Client();
         $apiClient->setAuth($shopId, $shopPassword);
+        $plugin = $this;
         $apiClient->setLogger(
-            function ($level, $message, $context) {
-                $this->debugLog($message);
+            function ($level, $message, $context) use ($plugin) {
+                $plugin->debugLog($message);
             }
         );
 
