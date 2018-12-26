@@ -688,7 +688,7 @@ HTML;
                     )
                 );
 
-                $html = '';
+                $html = array();
 
                 $html['info_section'] = $view->fetch($this->path.'/templates/actions/settings/tabs_return.html');
 
