@@ -52,6 +52,9 @@
 {if isset($p2p) && $p2p}
 [`Выберите метод оплаты`]
 <form id="paymentForm" action="{$form_url}" method="post">
+    {if waRequest::cookie('_csrf', '') != ''}
+        {$wa->csrf()}
+    {/if}
     <input type="hidden" name="action" value="p2p">
     <table class="radio" style="width: 50%;margin: 25px auto;">
         <tbody>
@@ -70,6 +73,9 @@
 {/if}
 {if $kassa}
 <form id="paymentFormKassa" action="" method="post">
+    {if waRequest::cookie('_csrf', '') != ''}
+        {$wa->csrf()}
+    {/if}
     {if $inside}
     [`Выберите метод оплаты`]
     <table class="radio" style="width: 50%;margin: 25px auto;">
